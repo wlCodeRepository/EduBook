@@ -9,18 +9,18 @@ EduBook 是一个面向学生和老师的课程预约系统，采用 GitHub + Su
 
 ## 当前状态
 
-当前仓库处于设计与工程化准备阶段，设计文档与实施计划位于 [`docs/plans`](./docs/plans)。CI、Supabase 本地开发和 GitHub Pages 发布说明位于 [`docs/deployment`](./docs/deployment)。
+当前版本已接入真实 Supabase Auth、用户时区、老师排期、预约申请与老师审核。在线演示地址为 https://wlcoderepository.github.io/EduBook/。通知供应商和 Cron 的配置见 [`docs/deployment/production-secrets.md`](./docs/deployment/production-secrets.md)。
 
 ## 本地启动
 
-当前尚未加入前端 `package.json`。前端骨架加入后，在项目根目录执行：
+在项目根目录执行：
 
 ```bash
 npm ci
 npm run dev
 ```
 
-预期的验证 scripts 为 `typecheck`、`test:unit` 和 `build`。没有 lockfile 的首次开发环境可使用 `npm install`，提交前应生成并提交 `package-lock.json`。
+验证 scripts 为 `typecheck`、`test:unit` 和 `build`。
 
 ## Supabase 配置
 
