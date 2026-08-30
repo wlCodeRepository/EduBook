@@ -17,7 +17,9 @@ const weekStart = ref(new Date()); const newRule = ref({ weekday: 1, start: '09:
 const demoState = ref<'success' | 'loading' | 'empty' | 'error'>('success')
 const language = ref<Language>((localStorage.getItem('edubook-language') as Language) || 'en')
 const copy = computed(() => messages[language.value])
-const timezoneOptions = ['UTC', 'Asia/Shanghai', 'Asia/Tokyo', 'Asia/Singapore', 'Asia/Kolkata', 'Europe/London', 'Europe/Paris', 'America/New_York', 'America/Los_Angeles', 'America/Toronto', 'Australia/Sydney']
+const detectedTimezone = (() => { try { const zone = Intl.DateTimeFormat().resolvedOptions().timeZone; if (zone) new Intl.DateTimeFormat('en-US', { timeZone: zone }).format(); return zone || '' } catch { return '' } })()
+const timezoneAutoDetected = Boolean(detectedTimezone)
+const timezoneOptions = Array.from(new Set([detectedTimezone, 'UTC', 'Asia/Shanghai', 'Asia/Tokyo', 'Asia/Singapore', 'Asia/Kolkata', 'Europe/London', 'Europe/Paris', 'America/New_York', 'America/Los_Angeles', 'America/Toronto', 'Australia/Sydney'])).filter(Boolean)
 
 const currentTeacher = computed(() => teachers.value.find((item) => item.id === selectedTeacherId.value) ?? teachers.value[0])
 const viewerTimezone = computed(() => profile.value?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC')
