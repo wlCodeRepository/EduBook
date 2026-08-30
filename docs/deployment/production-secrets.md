@@ -5,6 +5,10 @@
 - `VITE_SUPABASE_URL`: `https://ahhmaiazcimegsuihnrg.supabase.co`
 - `VITE_SUPABASE_ANON_KEY`: Supabase publishable/anon public key
 
+## Email OTP
+
+The frontend uses Supabase passwordless email OTP for both sign-in and sign-up. The Auth email SMTP provider must be configured with a real SMTP account, and the `Magic link or OTP` email template should contain `{{ .Token }}` without a `{{ .ConfirmationURL }}` link. User profile role and timezone are saved after the OTP is verified.
+
 ## Supabase Edge Function Secrets
 
 - `REMINDER_CRON_SECRET`: 已配置，用于课前提醒请求鉴权
