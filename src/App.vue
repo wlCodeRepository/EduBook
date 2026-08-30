@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { supabase, supabaseConfigured } from './lib/supabase'
 import { formatViewerTime, generateSlots, type BookingSlot } from './lib/booking'
 import type { Availability, BlockedPeriod, Booking, Profile, Role } from './lib/types'
@@ -19,6 +19,7 @@ const activeNav = ref('预约课程'); const teachers = ref<Profile[]>([]); cons
 const availability = ref<Availability[]>([]); const blocked = ref<BlockedPeriod[]>([]); const selectedTeacherId = ref(''); const selectedSlot = ref<BookingSlot | null>(null)
 const weekStart = ref(new Date()); const newRule = ref({ weekday: 1, start: '09:00', end: '12:00' }); const blockedForm = ref({ start: '', end: '', reason: '' })
 const demoState = ref<'success' | 'loading' | 'empty' | 'error'>('success')
+let unsubscribeAuth: (() => void) | null = null
 const language = ref<Language>((localStorage.getItem('edubook-language') as Language) || 'en')
 const copy = computed(() => messages[language.value])
 const detectedTimezone = (() => { try { const zone = Intl.DateTimeFormat().resolvedOptions().timeZone; if (zone) new Intl.DateTimeFormat('en-US', { timeZone: zone }).format(); return zone || '' } catch { return '' } })()
@@ -39,7 +40,18 @@ const studentBookings = computed(() => bookings.value.filter((item) => item.stud
 
 function showToast(message: string) { toast.value = message; window.setTimeout(() => { toast.value = '' }, 3000) }
 function toggleLanguage() { language.value = language.value === 'en' ? 'zh' : 'en'; localStorage.setItem('edubook-language', language.value) }
-function setError(error: unknown) { errorMessage.value = error instanceof Error ? error.message : '操作失败，请稍后重试' }
+function setError(error: unknown) {
+  const code = typeof error === 'object' && error !== null && 'code' in error ? String((error as { code?: unknown }).code) : ''
+  const errorMap: Record<string, string> = {
+    invalid_credentials: copy.value.authInvalid,
+    email_not_confirmed: copy.value.authNotConfirmed,
+    otp_expired: copy.value.authExpired,
+    token_expired: copy.value.authExpired,
+    over_request_rate_limit: copy.value.authRateLimited,
+    user_already_exists: copy.value.authAlreadyRegistered,
+  }
+  errorMessage.value = errorMap[code] || (error instanceof Error ? error.message : copy.value.authGeneric)
+}
 
 async function loadData() {
   if (!profile.value) return; loading.value = true; errorMessage.value = ''
@@ -117,7 +129,8 @@ function selectTeacher(id: string) { selectedTeacherId.value = id; selectedSlot.
 function shiftWeek(days: number) { weekStart.value = new Date(weekStart.value.getTime() + days * 86400000) }
 function slotLabel(slot: BookingSlot) { return `${slot.viewerStart} — ${slot.viewerEnd}` }
 
-onMounted(async () => { const current = await supabase.auth.getSession(); session.value = current.data.session ? { user: { id: current.data.session.user.id, email: current.data.session.user.email } } : null; if (session.value) await restoreProfile(session.value.user.id, session.value.user.email); supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, next: Session | null) => { if (event === 'PASSWORD_RECOVERY') { recoveryMode.value = true; authView.value = 'reset'; resetStep.value = 'password' } session.value = next ? { user: { id: next.user.id, email: next.user.email } } : null; if (next && !recoveryMode.value) await restoreProfile(next.user.id, next.user.email) }); loading.value = false })
+onMounted(async () => { const isRecoveryRedirect = new URLSearchParams(window.location.hash.replace(/^#/, '')).get('type') === 'recovery'; if (isRecoveryRedirect) { recoveryMode.value = true; authView.value = 'reset'; resetStep.value = 'password' }; const current = await supabase.auth.getSession(); session.value = current.data.session ? { user: { id: current.data.session.user.id, email: current.data.session.user.email } } : null; if (session.value && !recoveryMode.value) await restoreProfile(session.value.user.id, session.value.user.email); const { data } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, next: Session | null) => { if (event === 'PASSWORD_RECOVERY') { recoveryMode.value = true; authView.value = 'reset'; resetStep.value = 'password' } session.value = next ? { user: { id: next.user.id, email: next.user.email } } : null; if (next && !recoveryMode.value) await restoreProfile(next.user.id, next.user.email) }); unsubscribeAuth = () => data.subscription.unsubscribe(); loading.value = false })
+onUnmounted(() => { unsubscribeAuth?.(); unsubscribeAuth = null })
 </script>
 
 <template>
