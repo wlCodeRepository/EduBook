@@ -22,7 +22,7 @@
 - Submit calls `signUp`; only after a successful response does the UI move to code state.
 - Code state renders the email as read-only and accepts exactly six digits.
 - Verification uses `verifyOtp` with type `email`; only after success is the profile upserted.
-- Add a resend action with a visible countdown and a deliberate restart action for a changed email.
+- Add a resend action using Supabase `auth.resend({ type: 'signup', email })`, with a visible countdown and a deliberate restart action for a changed email.
 
 ### Task 3: Login and recovery
 
