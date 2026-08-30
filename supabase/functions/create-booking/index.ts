@@ -3,6 +3,7 @@ import { isIsoDate, isUuid, json, options, parseJson } from "../_shared/http.ts"
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return options();
@@ -28,21 +29,18 @@ Deno.serve(async (request) => {
     return json({ error: "invalid_booking_input" }, 400);
   }
 
-  const { data: teacher } = await client.from("profiles").select("role").eq("id", teacherId).single();
-  if (!teacher || teacher.role !== "TEACHER") return json({ error: "teacher_not_found" }, 404);
-
-  // TODO: validate the slot against weekly availability and blocked periods server-side.
-  // The exclusion constraint remains the final concurrency boundary.
-  const { data, error } = await client.from("bookings").insert({
-    teacher_id: teacherId,
-    student_id: user.id,
-    start_at_utc: startAtUtc,
-    end_at_utc: endAtUtc,
-    status: "PENDING",
-  }).select().single();
+  const admin = createClient(supabaseUrl, serviceRoleKey);
+  const { data, error } = await admin.rpc("create_booking", {
+    p_teacher_id: teacherId,
+    p_student_id: user.id,
+    p_start_at_utc: startAtUtc,
+    p_end_at_utc: endAtUtc,
+  });
   if (error) {
-    // PostgreSQL exclusion violations are surfaced as a conflict, never retried blindly.
-    if (error.code === "23P01") return json({ error: "slot_unavailable" }, 409);
+    if (["23P01"].includes(error.code) || error.message.includes("blocked_period")) return json({ error: "slot_unavailable" }, 409);
+    if (error.code === "P0002" && error.message === "teacher_not_found") return json({ error: "teacher_not_found" }, 404);
+    if (error.code === "42501") return json({ error: "student_only" }, 403);
+    if (error.code === "22023") return json({ error: error.message }, 400);
     return json({ error: "booking_create_failed" }, 500);
   }
   return json({ booking: data }, 201);

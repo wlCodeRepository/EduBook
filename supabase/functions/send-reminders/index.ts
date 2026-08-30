@@ -3,21 +3,32 @@ import { json, options } from "../_shared/http.ts";
 
 const url = Deno.env.get("SUPABASE_URL")!;
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const cronSecret = Deno.env.get("REMINDER_CRON_SECRET");
 
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return options();
   if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
-  // This endpoint is intended for Supabase Cron; protect it with the platform secret
-  // or a signed scheduler request before enabling it in production.
+  if (!cronSecret || request.headers.get("X-Reminder-Cron-Secret") !== cronSecret) {
+    return json({ error: "unauthorized" }, 401);
+  }
   const admin = createClient(url, serviceRoleKey);
+  const { data: archived, error: archiveError } = await admin.rpc("archive_expired_bookings");
+  if (archiveError) return json({ error: "archive_failed" }, 500);
   const from = new Date(Date.now() + 55 * 60 * 1000).toISOString();
   const until = new Date(Date.now() + 65 * 60 * 1000).toISOString();
-  const { data: bookings, error } = await admin.from("bookings")
-    .select("id, teacher_id, student_id, start_at_utc, end_at_utc")
-    .eq("status", "CONFIRMED").gte("start_at_utc", from).lt("start_at_utc", until);
-  if (error) return json({ error: "reminder_lookup_failed" }, 500);
+  const { data: claims, error } = await admin.rpc("claim_due_reminders", {
+    p_from: from, p_until: until, p_limit: 100,
+  });
+  if (error) return json({ error: "reminder_claim_failed" }, 500);
 
-  // TODO: claim notification_logs rows idempotently, format per-recipient timezone,
-  // and send through a provider using a Supabase secret. Never put provider tokens here.
-  return json({ eligibleBookings: bookings?.length ?? 0, dryRun: true });
+  // Provider delivery is intentionally a later iteration. Complete each claim
+  // as FAILED so it is retryable; neither service keys nor claim tokens are returned.
+  for (const claim of claims ?? []) {
+    await admin.rpc("complete_notification_claim", {
+      p_claim_token: claim.claim_token,
+      p_success: false,
+      p_error: "email_provider_not_configured",
+    });
+  }
+  return json({ archived: archived ?? 0, claimed: claims?.length ?? 0, delivery: "pending_provider" });
 });

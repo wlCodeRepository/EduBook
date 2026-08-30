@@ -28,23 +28,18 @@ Deno.serve(async (request) => {
     return json({ error: "invalid_action_input" }, 400);
   }
 
-  // Enforce the lifecycle boundary before updating; notification emission will be added
-  // as an atomic outbox operation in the notification iteration.
-  const { data: current, error: lookupError } = await admin.from("bookings")
-    .select("status").eq("id", bookingId).eq("teacher_id", user.id).single();
-  if (lookupError || !current) return json({ error: "booking_not_found" }, 404);
-  const allowed = (action === "confirm" || action === "reject") && current.status === "PENDING" ||
-    action === "cancel" && current.status === "CONFIRMED";
-  if (!allowed) return json({ error: "invalid_booking_transition" }, 409);
-
-  // This first-round skeleton scopes the update to the authenticated teacher.
-  const nextStatus = action === "confirm" ? "CONFIRMED" : action === "reject" ? "REJECTED" : "CANCELLED";
-  const patch: Record<string, string> = { status: nextStatus };
-  if (nextStatus === "CONFIRMED") patch.confirmed_at = new Date().toISOString();
-  if (nextStatus === "CANCELLED") patch.cancelled_at = new Date().toISOString();
-  if (typeof body.cancellationReason === "string") patch.cancellation_reason = body.cancellationReason.slice(0, 500);
-  const { data, error } = await admin.from("bookings").update(patch)
-    .eq("id", bookingId).eq("teacher_id", user.id).select().single();
-  if (error) return json({ error: "booking_action_failed" }, 409);
+  const reason = body.cancellationReason;
+  if (reason !== undefined && typeof reason !== "string") return json({ error: "invalid_cancellation_reason" }, 400);
+  const { data, error } = await admin.rpc("apply_booking_action", {
+    p_booking_id: bookingId,
+    p_teacher_id: user.id,
+    p_action: action,
+    p_cancellation_reason: typeof reason === "string" ? reason : null,
+  });
+  if (error) {
+    if (error.code === "P0002") return json({ error: "booking_not_found_or_transition_conflict" }, 409);
+    if (error.code === "22023") return json({ error: error.message }, 400);
+    return json({ error: "booking_action_failed" }, 500);
+  }
   return json({ booking: data });
 });
