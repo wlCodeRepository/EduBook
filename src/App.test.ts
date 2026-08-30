@@ -7,7 +7,7 @@ describe('EduBook booking workspace', () => {
     const wrapper = mount(App)
     expect(wrapper.text()).toContain('EduBook')
     expect(wrapper.text()).toContain('Supabase is not configured')
-    expect(wrapper.find('input[type="password"]').exists()).toBe(true)
+    expect(wrapper.find('input[type="email"]').exists()).toBe(true)
   })
 
   it('offers a Chinese language switch and keeps timezone as a select', async () => {
@@ -18,5 +18,11 @@ describe('EduBook booking workspace', () => {
     await wrapper.vm.$nextTick()
     expect(wrapper.text()).toContain('已自动识别时区，可修改')
     expect(wrapper.find('select').exists()).toBe(true)
+  })
+
+  it('uses a passwordless email code flow', () => {
+    const wrapper = mount(App)
+    expect(wrapper.text()).toMatch(/发送验证码|Send verification code/)
+    expect(wrapper.find('input[type="password"]').exists()).toBe(false)
   })
 })

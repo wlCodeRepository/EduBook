@@ -8,6 +8,7 @@
 - Completed: teacher confirmation, rejection and cancellation through `booking-action`.
 - Completed: student history and teacher schedule management UI.
 - Completed: English-first interface with a Chinese language switch, responsive mobile layout, and timezone select seeded from browser detection.
+- Completed: passwordless email OTP sign-in and signup; the app asks for a verification code instead of a confirmation link.
 - Completed: server-side notification processor and retryable delivery records.
 - Pending external setup: configure `RESEND_API_KEY`, `MAIL_FROM`, and invoke the two cron functions on a schedule.
 
