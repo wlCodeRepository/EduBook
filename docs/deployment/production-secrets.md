@@ -7,7 +7,7 @@
 
 ## Email OTP
 
-The frontend uses Supabase email/password sign-in and sign-up. Password recovery uses an email OTP: the `Reset password` email template should contain `{{ .Token }}` and must not contain `{{ .ConfirmationURL }}`. The Auth email SMTP provider must be configured with a real SMTP account. User profile role and timezone are saved during sign-up. After OTP verification, the frontend holds the recovery session on the password form until `updateUser({ password })` succeeds.
+The frontend uses Supabase email/password sign-in and sign-up. Sign-up first calls `signUp` to send a six-digit confirmation code; the email field is locked until `verifyOtp({ email, token, type: 'email' })` succeeds, then the profile is created. The `Confirm signup` email template should contain `{{ .Token }}` and must not contain `{{ .ConfirmationURL }}`. Password recovery uses an email OTP: the `Reset password` email template should contain `{{ .Token }}` and must not contain `{{ .ConfirmationURL }}`. The Auth email SMTP provider must be configured with a real SMTP account. After OTP verification, the frontend holds the recovery session on the password form until `updateUser({ password })` succeeds.
 
 ## Supabase Edge Function Secrets
 
