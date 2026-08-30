@@ -7,7 +7,7 @@
 
 ## Email OTP
 
-The frontend uses Supabase passwordless email OTP for both sign-in and sign-up. The Auth email SMTP provider must be configured with a real SMTP account, and the `Magic link or OTP` email template should contain `{{ .Token }}` without a `{{ .ConfirmationURL }}` link. User profile role and timezone are saved after the OTP is verified.
+The frontend uses Supabase email/password sign-in and sign-up. Password recovery uses an email OTP: the `Reset password` email template should contain `{{ .Token }}` without a `{{ .ConfirmationURL }}` link. The Auth email SMTP provider must be configured with a real SMTP account. User profile role and timezone are saved during sign-up.
 
 ## Supabase Edge Function Secrets
 
