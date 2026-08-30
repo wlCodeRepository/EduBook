@@ -34,4 +34,12 @@ describe('EduBook booking workspace', () => {
     expect(wrapper.text()).toMatch(/重置.*密码|Reset.*password/)
     expect(wrapper.find('input[type="email"]').exists()).toBe(true)
   })
+
+  it('starts signup with an email verification step', async () => {
+    const wrapper = mount(App)
+    await wrapper.get('.auth-switch').trigger('click')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.text()).toMatch(/发送验证码|Send verification code/)
+    expect(wrapper.find('select').exists()).toBe(true)
+  })
 })
