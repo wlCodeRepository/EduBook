@@ -1,109 +1,97 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { supabase, supabaseConfigured } from './lib/supabase'
+import { formatViewerTime, generateSlots, type BookingSlot } from './lib/booking'
+import type { Availability, BlockedPeriod, Booking, Profile, Role } from './lib/types'
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
 
-type Role = 'student' | 'teacher'
-type DemoState = 'success' | 'loading' | 'empty' | 'error'
+const session = ref<{ user: { id: string; email?: string } } | null>(null)
+const profile = ref<Profile | null>(null)
+const authMode = ref<'login' | 'signup'>('login')
+const authForm = ref({ email: '', password: '', displayName: '', role: 'STUDENT' as Role, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Shanghai' })
+const loading = ref(true); const busy = ref(false); const errorMessage = ref(''); const toast = ref('')
+const activeNav = ref('预约课程'); const teachers = ref<Profile[]>([]); const bookings = ref<Booking[]>([])
+const availability = ref<Availability[]>([]); const blocked = ref<BlockedPeriod[]>([]); const selectedTeacherId = ref(''); const selectedSlot = ref<BookingSlot | null>(null)
+const weekStart = ref(new Date()); const newRule = ref({ weekday: 1, start: '09:00', end: '12:00' }); const blockedForm = ref({ start: '', end: '', reason: '' })
+const demoState = ref<'success' | 'loading' | 'empty' | 'error'>('success')
 
-const role = ref<Role>('student')
-const demoState = ref<DemoState>('success')
-const activeNav = ref('预约课程')
-const selectedTeacher = ref('林若安')
-const selectedDate = ref('2026-09-02')
-const selectedSlot = ref('15:00')
-const toast = ref('')
-const teacherMode = computed(() => role.value === 'teacher')
+const currentTeacher = computed(() => teachers.value.find((item) => item.id === selectedTeacherId.value) ?? teachers.value[0])
+const viewerTimezone = computed(() => profile.value?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC')
+const teacherSlots = computed(() => {
+  if (!currentTeacher.value || demoState.value !== 'success') return []
+  const start = weekStart.value; const date = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`
+  return generateSlots(date, 7, currentTeacher.value.timezone, viewerTimezone.value, currentTeacher.value.default_lesson_minutes, availability.value.filter((item) => item.teacher_id === currentTeacher.value.id), blocked.value.filter((item) => item.teacher_id === currentTeacher.value.id), bookings.value.filter((item) => item.teacher_id === currentTeacher.value.id))
+})
+const availableSlots = computed(() => teacherSlots.value.filter((slot) => slot.available))
+const pendingBookings = computed(() => bookings.value.filter((item) => item.status === 'PENDING'))
+const teacherBookings = computed(() => bookings.value.filter((item) => item.teacher_id === profile.value?.id).sort((a, b) => a.start_at_utc.localeCompare(b.start_at_utc)))
+const studentBookings = computed(() => bookings.value.filter((item) => item.student_id === profile.value?.id).sort((a, b) => b.start_at_utc.localeCompare(a.start_at_utc)))
 
-const teachers = [
-  { name: '林若安', subject: '英语表达 · 雅思口语', meta: '本周 12 个可约时段', initials: 'LA', color: 'coral', next: '今天 15:00' },
-  { name: '周知远', subject: '数学思维 · 高中', meta: '本周 8 个可约时段', initials: 'ZY', color: 'teal', next: '明天 10:30' },
-  { name: '沈砚秋', subject: '物理竞赛 · 初高中', meta: '本周 5 个可约时段', initials: 'SY', color: 'ink', next: '周五 19:00' },
-]
+function showToast(message: string) { toast.value = message; window.setTimeout(() => { toast.value = '' }, 3000) }
+function setError(error: unknown) { errorMessage.value = error instanceof Error ? error.message : '操作失败，请稍后重试' }
 
-const week = [
-  { day: '周一', date: '31', muted: true }, { day: '周二', date: '01', muted: true },
-  { day: '周三', date: '02', muted: false }, { day: '周四', date: '03', muted: false },
-  { day: '周五', date: '04', muted: false }, { day: '周六', date: '05', muted: false }, { day: '周日', date: '06', muted: false },
-]
-const slots = ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00', '18:00']
-const openSlots = new Set(['10:00', '11:00', '15:00', '16:00', '18:00'])
-
-const currentTeacher = computed(() => teachers.find((teacher) => teacher.name === selectedTeacher.value) ?? teachers[0])
-const bookingCopy = computed(() => demoState.value === 'empty' ? '本周暂无可预约时段' : demoState.value === 'error' ? '暂时无法加载预约数据' : '选择一个适合你的时间')
-
-function showToast(message: string) {
-  toast.value = message
-  window.setTimeout(() => { toast.value = '' }, 2600)
+async function loadData() {
+  if (!profile.value) return; loading.value = true; errorMessage.value = ''
+  try {
+    const teachersResponse = await supabase.from('profiles').select('*').eq('role', 'TEACHER').order('display_name')
+    if (teachersResponse.error) throw teachersResponse.error
+    teachers.value = teachersResponse.data as Profile[]; if (!selectedTeacherId.value && teachers.value[0]) selectedTeacherId.value = teachers.value[0].id
+    const bookingResponse = await supabase.from('bookings').select('*').or(`student_id.eq.${profile.value.id},teacher_id.eq.${profile.value.id}`)
+    if (bookingResponse.error) throw bookingResponse.error
+    bookings.value = bookingResponse.data as Booking[]
+    const teacherId = profile.value.role === 'TEACHER' ? profile.value.id : selectedTeacherId.value
+    if (teacherId) {
+      const [availabilityResponse, blockedResponse] = await Promise.all([supabase.from('teacher_availability').select('*').eq('teacher_id', teacherId).order('weekday').order('local_start_time'), supabase.from('teacher_blocked_periods').select('*').eq('teacher_id', teacherId).order('start_at_utc')])
+      if (availabilityResponse.error) throw availabilityResponse.error; if (blockedResponse.error) throw blockedResponse.error
+      availability.value = availabilityResponse.data as Availability[]; blocked.value = blockedResponse.data as BlockedPeriod[]
+    }
+  } catch (error) { setError(error) } finally { loading.value = false }
 }
 
-function bookSlot() {
-  if (!selectedSlot.value) return
-  showToast(`已提交 ${selectedDate.value} ${selectedSlot.value} 的预约申请`)
+async function submitAuth() {
+  busy.value = true; errorMessage.value = ''
+  try {
+    if (!supabaseConfigured) throw new Error('请先配置 VITE_SUPABASE_URL 和 VITE_SUPABASE_ANON_KEY')
+    const result = authMode.value === 'login' ? await supabase.auth.signInWithPassword({ email: authForm.value.email, password: authForm.value.password }) : await supabase.auth.signUp({ email: authForm.value.email, password: authForm.value.password, options: { data: { display_name: authForm.value.displayName } } })
+    if (result.error) throw result.error
+    if (authMode.value === 'signup' && result.data.user && result.data.session) await ensureProfile(result.data.user.id, result.data.user.email || authForm.value.email)
+    if (authMode.value === 'signup' && !result.data.session) showToast('注册成功，请查收邮箱完成验证后登录')
+  } catch (error) { setError(error) } finally { busy.value = false }
 }
 
-function toggleRole(nextRole: Role) {
-  role.value = nextRole
-  activeNav.value = nextRole === 'student' ? '预约课程' : '预约管理'
+async function ensureProfile(id: string, email: string) {
+  const values = { id, email, display_name: authForm.value.displayName || email.split('@')[0], role: authForm.value.role, timezone: authForm.value.timezone, default_lesson_minutes: 60 }
+  const response = await supabase.from('profiles').upsert(values); if (response.error) throw response.error; profile.value = values as Profile
 }
+async function restoreProfile(userId: string, email = '') { const response = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle(); if (response.error) { setError(response.error); return }; if (response.data) profile.value = response.data as Profile; else if (email) await ensureProfile(userId, email); await loadData() }
+async function signOut() { await supabase.auth.signOut(); session.value = null; profile.value = null }
+
+async function submitBooking() {
+  if (!selectedSlot.value || !currentTeacher.value) return; busy.value = true; errorMessage.value = ''
+  try { const response = await supabase.functions.invoke('create-booking', { body: { teacherId: currentTeacher.value.id, startAtUtc: selectedSlot.value.startAtUtc, endAtUtc: selectedSlot.value.endAtUtc } }); if (response.error) throw response.error; showToast('预约申请已提交，等待老师确认'); selectedSlot.value = null; await loadData() } catch (error) { setError(error) } finally { busy.value = false }
+}
+async function bookingAction(id: string, action: 'confirm' | 'reject' | 'cancel') {
+  busy.value = true; errorMessage.value = ''
+  try { const response = await supabase.functions.invoke('booking-action', { body: { bookingId: id, action } }); if (response.error) throw response.error; showToast(action === 'confirm' ? '预约已确认' : action === 'reject' ? '预约已拒绝' : '预约已取消'); await loadData() } catch (error) { setError(error) } finally { busy.value = false }
+}
+async function addAvailability() { if (!profile.value) return; busy.value = true; try { const response = await supabase.from('teacher_availability').insert({ teacher_id: profile.value.id, weekday: newRule.value.weekday, local_start_time: newRule.value.start, local_end_time: newRule.value.end }).select().single(); if (response.error) throw response.error; showToast('固定授课时间已添加'); await loadData() } catch (error) { setError(error) } finally { busy.value = false } }
+async function removeAvailability(id: string) { const response = await supabase.from('teacher_availability').delete().eq('id', id); if (response.error) setError(response.error); else await loadData() }
+async function addBlockedPeriod() { if (!profile.value || !blockedForm.value.start || !blockedForm.value.end) return; const response = await supabase.from('teacher_blocked_periods').insert({ teacher_id: profile.value.id, start_at_utc: new Date(blockedForm.value.start).toISOString(), end_at_utc: new Date(blockedForm.value.end).toISOString(), reason: blockedForm.value.reason || null }); if (response.error) setError(response.error); else { showToast('不可预约时段已添加'); blockedForm.value = { start: '', end: '', reason: '' }; await loadData() } }
+async function saveLessonMinutes() { if (!profile.value) return; const response = await supabase.from('profiles').update({ default_lesson_minutes: profile.value.default_lesson_minutes }).eq('id', profile.value.id); if (response.error) setError(response.error); else showToast('课程时长已保存') }
+function selectTeacher(id: string) { selectedTeacherId.value = id; selectedSlot.value = null; loadData() }
+function shiftWeek(days: number) { weekStart.value = new Date(weekStart.value.getTime() + days * 86400000) }
+function slotLabel(slot: BookingSlot) { return `${slot.viewerStart} — ${slot.viewerEnd}` }
+
+onMounted(async () => { const current = await supabase.auth.getSession(); session.value = current.data.session ? { user: { id: current.data.session.user.id, email: current.data.session.user.email } } : null; if (session.value) await restoreProfile(session.value.user.id, session.value.user.email); supabase.auth.onAuthStateChange(async (_event: AuthChangeEvent, next: Session | null) => { session.value = next ? { user: { id: next.user.id, email: next.user.email } } : null; if (next) await restoreProfile(next.user.id, next.user.email) }); loading.value = false })
 </script>
 
 <template>
-  <div class="app-shell">
-    <aside class="sidebar" aria-label="主导航">
-      <div class="brand"><span class="brand-mark">E</span><span>EduBook</span></div>
-      <div class="workspace-label">我的工作台</div>
-      <nav class="nav-list">
-        <button class="nav-item" :class="{ active: activeNav === '预约课程' }" @click="activeNav = '预约课程'">
-          <span class="nav-icon calendar-icon" aria-hidden="true">□</span>预约课程
-        </button>
-        <button class="nav-item" :class="{ active: activeNav === '我的预约' }" @click="activeNav = '我的预约'">
-          <span class="nav-icon" aria-hidden="true">↗</span>我的预约 <span class="nav-count">2</span>
-        </button>
-        <button v-if="teacherMode" class="nav-item" :class="{ active: activeNav === '预约管理' }" @click="activeNav = '预约管理'">
-          <span class="nav-icon" aria-hidden="true">≡</span>预约管理 <span class="nav-count warm">3</span>
-        </button>
-        <button v-if="teacherMode" class="nav-item" :class="{ active: activeNav === '排期设置' }" @click="activeNav = '排期设置'">
-          <span class="nav-icon" aria-hidden="true">＋</span>排期设置
-        </button>
-      </nav>
-      <div class="sidebar-bottom">
-        <button class="nav-item"><span class="nav-icon" aria-hidden="true">?</span>帮助中心</button>
-        <div class="profile-mini"><div class="avatar avatar-user">WL</div><div><strong>王老师</strong><small>成都 · UTC+8</small></div><span class="more">···</span></div>
-      </div>
-    </aside>
-
-    <main class="main-content">
-      <header class="topbar">
-        <div><p class="eyebrow">星期三，2026年9月2日</p><h1>{{ role === 'student' ? '找到适合你的课堂' : '今天，掌握你的教学节奏' }}</h1></div>
-        <div class="top-actions"><label class="state-control">演示状态 <select v-model="demoState" aria-label="切换演示状态"><option value="success">Success</option><option value="loading">Loading</option><option value="empty">Empty</option><option value="error">Error</option></select></label><button class="icon-button" aria-label="通知">♧<span class="notification-dot"></span></button><button class="avatar avatar-user" aria-label="打开个人菜单">WL</button></div>
-      </header>
-
-      <div v-if="role === 'student' && activeNav === '预约课程'" class="content-grid">
-        <section class="primary-column">
-          <div class="role-switch" role="tablist" aria-label="角色切换"><button :class="{ selected: role === 'student' }" role="tab" @click="toggleRole('student')">学生视角</button><button :class="{ selected: teacherMode }" role="tab" @click="toggleRole('teacher')">老师视角</button></div>
-          <div class="section-heading"><div><span class="section-kicker">精选老师</span><h2>今天想学点什么？</h2></div><button class="text-button">查看全部 <span>→</span></button></div>
-          <div class="teacher-list" aria-label="老师列表">
-            <button v-for="teacher in teachers" :key="teacher.name" class="teacher-card" :class="{ chosen: selectedTeacher === teacher.name }" @click="selectedTeacher = teacher.name">
-              <span class="avatar" :class="`avatar-${teacher.color}`">{{ teacher.initials }}</span><span class="teacher-info"><strong>{{ teacher.name }}</strong><span>{{ teacher.subject }}</span><small>{{ teacher.meta }}</small></span><span class="teacher-arrow">→</span>
-            </button>
-          </div>
-          <div class="section-heading calendar-heading"><div><span class="section-kicker">预约日历</span><h2>{{ currentTeacher.name }}的可约时间</h2><p class="subtle">时区：Asia/Shanghai（UTC+8） · 课程时长 60 分钟</p></div><div class="calendar-nav"><button aria-label="上周">‹</button><span>2026年 9月</span><button aria-label="下周">›</button></div></div>
-          <div class="calendar-card">
-            <div class="week-row"><div class="week-spacer">时间</div><div v-for="item in week" :key="item.date" class="week-day" :class="{ muted: item.muted, today: item.date === '02' }"><span>{{ item.day }}</span><strong>{{ item.date }}</strong></div></div>
-            <div v-if="demoState === 'loading'" class="state-panel loading-state"><span class="spinner"></span><strong>正在加载可预约时段…</strong><small>正在读取老师的最新排期</small></div>
-            <div v-else-if="demoState === 'empty'" class="state-panel"><span class="state-symbol">○</span><strong>本周暂无可预约时段</strong><small>试试查看下一周的课程安排</small><button class="outline-button">查看下一周</button></div>
-            <div v-else-if="demoState === 'error'" class="state-panel error-state"><span class="state-symbol">!</span><strong>排期加载失败</strong><small>网络似乎开了个小差，请稍后再试</small><button class="outline-button" @click="demoState = 'success'">重新加载</button></div>
-            <div v-else class="calendar-body"><div v-for="time in slots" :key="time" class="time-row"><div class="time-label">{{ time }}</div><div v-for="item in week" :key="`${item.date}-${time}`" class="slot-cell" :class="{ muted: item.muted, booked: item.date === '03' && time === '15:00', available: item.date === '02' && openSlots.has(time), selected: selectedSlot === time && item.date === '02' }" @click="item.date === '02' && openSlots.has(time) ? selectedSlot = time : null">{{ item.date === '03' && time === '15:00' ? '已约' : item.date === '02' && openSlots.has(time) ? '可预约' : '' }}</div></div></div>
-          </div>
-        </section>
-        <aside class="booking-summary"><div class="summary-top"><span class="section-kicker">预约确认</span><span class="status-pill">待确认</span></div><h3>{{ bookingCopy }}</h3><div class="summary-person"><span class="avatar avatar-coral">{{ currentTeacher.initials }}</span><div><strong>{{ currentTeacher.name }}</strong><span>{{ currentTeacher.subject }}</span></div></div><div class="summary-details"><div><span>日期</span><strong>9月2日 · 星期三</strong></div><div><span>时间</span><strong>{{ selectedSlot || '请选择时段' }} — {{ selectedSlot ? `${String(Number(selectedSlot.slice(0, 2)) + 1).padStart(2, '0')}:00` : '--' }}</strong></div><div><span>你的时区</span><strong>成都（UTC+8）</strong></div></div><button class="primary-button" :disabled="demoState !== 'success' || !selectedSlot" @click="bookSlot">提交预约申请 <span>→</span></button><p class="summary-note">老师确认后，你会收到邮件通知。提交申请不会产生费用。</p></aside>
-      </div>
-
-      <div v-else class="teacher-view">
-        <div class="role-switch" role="tablist"><button :class="{ selected: role === 'student' }" @click="toggleRole('student')">学生视角</button><button :class="{ selected: role === 'teacher' }" @click="toggleRole('teacher')">老师视角</button></div>
-        <div class="teacher-hero"><div><span class="section-kicker">老师工作台 / {{ activeNav }}</span><h2>{{ activeNav === '排期设置' ? '安排你的授课时间' : '预约申请，一目了然' }}</h2><p>用清晰的排期，把每一次专注的教学留给真正重要的事。</p></div><button class="primary-button">＋ 新增时间段</button></div>
-        <div class="teacher-panels"><div class="panel wide"><div class="panel-head"><div><strong>本周预约</strong><span>2026年 9月 1日 — 7日</span></div><span class="status-pill confirmed">已确认 6</span></div><div v-for="booking in [{time:'今天 15:00', name:'陈思齐', subject:'雅思口语 · 第 3 节', status:'待确认'},{time:'今天 17:00', name:'李沐阳', subject:'英语表达 · 第 1 节', status:'已确认'},{time:'明天 10:30', name:'赵一诺', subject:'雅思口语 · 第 2 节', status:'已确认'}]" :key="booking.time" class="booking-row"><div class="booking-time">{{ booking.time }}</div><div class="avatar avatar-student">{{ booking.name.slice(0, 1) }}</div><div class="booking-name"><strong>{{ booking.name }}</strong><span>{{ booking.subject }}</span></div><span class="status-pill" :class="booking.status === '已确认' ? 'confirmed' : ''">{{ booking.status }}</span><button class="row-action">···</button></div></div><div class="panel"><div class="panel-head"><div><strong>固定授课时间</strong><span>每周重复</span></div><button class="text-button">编辑</button></div><div class="availability-row"><span>一 / 三 / 五</span><strong>14:00 — 18:00</strong><small>每节 60 分钟</small></div><div class="availability-row blocked"><span>周二</span><strong>不可预约</strong><small>会议日</small></div></div></div>
-      </div>
+  <div v-if="!session || !profile" class="auth-shell"><div class="auth-card"><div class="brand"><span class="brand-mark">E</span><span>EduBook</span></div><span class="section-kicker">课程预约 workspace</span><h1>{{ authMode === 'login' ? '把每一次学习，安排在合适的时间。' : '创建你的 EduBook 账户。' }}</h1><p class="auth-intro">跨越时区，也能和合适的老师从容见面。</p><div v-if="!supabaseConfigured" class="notice error-state">当前站点还没有配置 Supabase 公共环境变量，管理员完成配置后即可登录。</div><form @submit.prevent="submitAuth"><label v-if="authMode === 'signup'">你的称呼<input v-model="authForm.displayName" required placeholder="例如：林同学" /></label><label>邮箱<input v-model="authForm.email" type="email" required placeholder="you@example.com" /></label><label>密码<input v-model="authForm.password" type="password" minlength="6" required placeholder="至少 6 位" /></label><template v-if="authMode === 'signup'"><label>身份<select v-model="authForm.role"><option value="STUDENT">学生</option><option value="TEACHER">老师</option></select></label><label>你的时区<input v-model="authForm.timezone" required placeholder="Asia/Shanghai" /></label></template><p v-if="errorMessage" class="form-error">{{ errorMessage }}</p><button class="primary-button full" :disabled="busy || !supabaseConfigured">{{ busy ? '处理中…' : authMode === 'login' ? '登录 EduBook →' : '创建账户 →' }}</button></form><button class="text-button auth-switch" @click="authMode = authMode === 'login' ? 'signup' : 'login'">{{ authMode === 'login' ? '还没有账户？创建一个' : '已有账户？返回登录' }}</button></div></div>
+  <div v-else class="app-shell"><aside class="sidebar" aria-label="主导航"><div class="brand"><span class="brand-mark">E</span><span>EduBook</span></div><div class="workspace-label">我的工作台</div><nav class="nav-list"><button class="nav-item" :class="{ active: activeNav === '预约课程' }" @click="activeNav = '预约课程'">□ 预约课程</button><button class="nav-item" :class="{ active: activeNav === '我的预约' }" @click="activeNav = '我的预约'">↗ 我的预约 <span class="nav-count">{{ studentBookings.length }}</span></button><template v-if="profile.role === 'TEACHER'"><button class="nav-item" :class="{ active: activeNav === '预约管理' }" @click="activeNav = '预约管理'">≡ 预约管理 <span class="nav-count warm">{{ pendingBookings.length }}</span></button><button class="nav-item" :class="{ active: activeNav === '排期设置' }" @click="activeNav = '排期设置'">＋ 排期设置</button></template></nav><div class="sidebar-bottom"><button class="nav-item">? 帮助中心</button><div class="profile-mini"><div class="avatar avatar-user">{{ profile.display_name.slice(0, 2) }}</div><div><strong>{{ profile.display_name }}</strong><small>{{ profile.timezone }}</small></div><button class="signout" @click="signOut">退出</button></div></div></aside>
+    <main class="main-content"><header class="topbar"><div><p class="eyebrow">{{ new Intl.DateTimeFormat('zh-CN', { dateStyle: 'full', timeZone: viewerTimezone }).format(new Date()) }}</p><h1>{{ profile.role === 'TEACHER' && activeNav !== '预约课程' ? '今天，掌握你的教学节奏' : '找到适合你的课堂' }}</h1></div><div class="top-actions"><label class="state-control">状态 <select v-model="demoState"><option value="success">正常</option><option value="loading">加载中</option><option value="empty">空状态</option><option value="error">错误</option></select></label><button class="avatar avatar-user" aria-label="当前用户">{{ profile.display_name.slice(0, 2) }}</button></div></header><div v-if="errorMessage" class="notice error-state">{{ errorMessage }} <button class="text-button" @click="loadData">重试</button></div>
+      <div v-if="activeNav === '预约课程'" class="content-grid"><section class="primary-column"><div class="section-heading"><div><span class="section-kicker">精选老师</span><h2>今天想学点什么？</h2></div></div><div v-if="loading" class="state-panel"><span class="spinner"></span><strong>正在读取老师列表…</strong></div><div v-else-if="!teachers.length" class="state-panel"><span class="state-symbol">○</span><strong>还没有老师入驻</strong><small>请稍后再来看看</small></div><div v-else class="teacher-list" aria-label="老师列表"><button v-for="teacher in teachers" :key="teacher.id" class="teacher-card" :class="{ chosen: selectedTeacherId === teacher.id }" @click="selectTeacher(teacher.id)"><span class="avatar avatar-coral">{{ teacher.display_name.slice(0, 2) }}</span><span class="teacher-info"><strong>{{ teacher.display_name }}</strong><span>{{ teacher.timezone }}</span><small>课程时长 {{ teacher.default_lesson_minutes }} 分钟</small></span><span class="teacher-arrow">→</span></button></div><div class="section-heading calendar-heading"><div><span class="section-kicker">预约日历</span><h2>{{ currentTeacher?.display_name || '选择老师' }}的可约时间</h2><p class="subtle">按你的时区显示：{{ viewerTimezone }}</p></div><div class="calendar-nav"><button aria-label="上一周" @click="shiftWeek(-7)">‹</button><span>未来 7 天</span><button aria-label="下一周" @click="shiftWeek(7)">›</button></div></div><div class="calendar-card"><div v-if="demoState === 'loading'" class="state-panel"><span class="spinner"></span><strong>正在加载可预约时段…</strong></div><div v-else-if="demoState === 'empty' || !availableSlots.length" class="state-panel"><span class="state-symbol">○</span><strong>这段时间暂无可预约时段</strong><small>试试查看下一周的课程安排</small></div><div v-else-if="demoState === 'error'" class="state-panel error-state"><span class="state-symbol">!</span><strong>排期加载失败</strong><button class="outline-button" @click="demoState = 'success'">重新加载</button></div><div v-else class="slot-list"><button v-for="slot in teacherSlots" :key="slot.startAtUtc" class="slot-item" :class="{ unavailable: !slot.available, selected: selectedSlot?.startAtUtc === slot.startAtUtc }" :disabled="!slot.available" @click="selectedSlot = slot"><span>{{ slot.viewerStart }}</span><strong>{{ slot.available ? '可预约' : '已占用' }}</strong></button></div></div></section><aside class="booking-summary"><div class="summary-top"><span class="section-kicker">预约确认</span><span class="status-pill">待确认</span></div><h3>{{ selectedSlot ? '确认这节课的时间' : '选择一个适合你的时间' }}</h3><div v-if="currentTeacher" class="summary-person"><span class="avatar avatar-coral">{{ currentTeacher.display_name.slice(0, 2) }}</span><div><strong>{{ currentTeacher.display_name }}</strong><span>{{ currentTeacher.timezone }}</span></div></div><div v-if="selectedSlot" class="summary-details"><div><span>老师当地时间</span><strong>{{ selectedSlot.localDate }} · {{ selectedSlot.localStart }} — {{ selectedSlot.localEnd }}</strong></div><div><span>你的时间</span><strong>{{ slotLabel(selectedSlot) }}</strong></div></div><button class="primary-button" :disabled="!selectedSlot || busy" @click="submitBooking">{{ busy ? '提交中…' : '提交预约申请 →' }}</button><p class="summary-note">老师确认后，你会收到邮件通知。提交申请不会产生费用。</p></aside></div>
+      <section v-else-if="activeNav === '我的预约'" class="dashboard-panel"><div class="teacher-hero"><div><span class="section-kicker">学生工作台 / 我的预约</span><h2>每一节课，都有清晰安排。</h2></div></div><div class="panel wide"><div v-if="!studentBookings.length" class="state-panel"><strong>还没有预约记录</strong><small>去预约课程，找到下一位老师</small></div><div v-for="booking in studentBookings" :key="booking.id" class="booking-row"><div class="booking-time">{{ formatViewerTime(booking.start_at_utc, viewerTimezone) }}</div><div class="booking-name"><strong>{{ booking.status === 'PENDING' ? '等待老师确认' : booking.status === 'CONFIRMED' ? '预约已确认' : booking.status === 'COMPLETED' ? '已完成' : '预约已结束' }}</strong><span>{{ new Date(booking.start_at_utc).toLocaleString('zh-CN', { timeZone: viewerTimezone }) }}</span></div><span class="status-pill" :class="{ confirmed: booking.status === 'CONFIRMED' }">{{ booking.status }}</span></div></div></section>
+      <section v-else class="teacher-view"><div class="teacher-hero"><div><span class="section-kicker">老师工作台 / {{ activeNav }}</span><h2>{{ activeNav === '排期设置' ? '安排你的授课时间' : '预约申请，一目了然' }}</h2><p>用清晰的排期，把每一次专注的教学留给真正重要的事。</p></div></div><div v-if="activeNav === '预约管理'" class="teacher-panels"><div class="panel wide"><div class="panel-head"><div><strong>预约申请</strong><span>{{ pendingBookings.length }} 条待处理</span></div></div><div v-if="!teacherBookings.length" class="state-panel"><strong>暂时没有预约</strong></div><div v-for="booking in teacherBookings" :key="booking.id" class="booking-row"><div class="booking-time">{{ new Date(booking.start_at_utc).toLocaleString('zh-CN', { timeZone: profile.timezone }) }}</div><div class="avatar avatar-student">学</div><div class="booking-name"><strong>学生预约</strong><span>{{ booking.student_id }}</span></div><span class="status-pill" :class="{ confirmed: booking.status === 'CONFIRMED' }">{{ booking.status }}</span><div class="row-actions"><button v-if="booking.status === 'PENDING'" class="mini-button" @click="bookingAction(booking.id, 'confirm')">确认</button><button v-if="booking.status === 'PENDING'" class="mini-button ghost" @click="bookingAction(booking.id, 'reject')">拒绝</button><button v-if="booking.status === 'CONFIRMED'" class="mini-button ghost" @click="bookingAction(booking.id, 'cancel')">取消</button></div></div></div></div><div v-else class="teacher-panels"><div class="panel wide"><div class="panel-head"><div><strong>固定授课时间</strong><span>按 {{ profile.timezone }} 解释</span></div></div><div v-for="rule in availability" :key="rule.id" class="availability-row"><span>周{{ ['日','一','二','三','四','五','六'][rule.weekday] }}</span><strong>{{ rule.local_start_time.slice(0,5) }} — {{ rule.local_end_time.slice(0,5) }}</strong><button class="text-button" @click="removeAvailability(rule.id)">移除</button></div><div class="inline-form"><select v-model="newRule.weekday"><option v-for="(day, index) in ['日','一','二','三','四','五','六']" :key="day" :value="index">周{{ day }}</option></select><input v-model="newRule.start" type="time" /><input v-model="newRule.end" type="time" /><button class="primary-button" @click="addAvailability">添加</button></div></div><div class="panel"><div class="panel-head"><div><strong>课程设置</strong><span>默认课程时长</span></div></div><label>每节课分钟数<input v-model.number="profile.default_lesson_minutes" type="number" min="5" max="240" step="5" /></label><button class="outline-button" @click="saveLessonMinutes">保存时长</button></div><div class="panel wide"><div class="panel-head"><div><strong>不可预约时段</strong><span>请假、会议或个人安排</span></div></div><div v-for="item in blocked" :key="item.id" class="availability-row blocked"><strong>{{ new Date(item.start_at_utc).toLocaleString('zh-CN', { timeZone: profile.timezone }) }}</strong><small>{{ item.reason || '不可预约' }}</small></div><div class="inline-form"><input v-model="blockedForm.start" type="datetime-local" /><input v-model="blockedForm.end" type="datetime-local" /><input v-model="blockedForm.reason" placeholder="原因（可选）" /><button class="primary-button" @click="addBlockedPeriod">添加</button></div></div></div></section>
     </main>
-  </div>
-  <transition name="toast"><div v-if="toast" class="toast" role="status"><span>✓</span>{{ toast }}</div></transition>
+  </div><transition name="toast"><div v-if="toast" class="toast" role="status"><span>✓</span>{{ toast }}</div></transition>
 </template>
