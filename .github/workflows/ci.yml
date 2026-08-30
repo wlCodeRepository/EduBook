@@ -11,6 +11,11 @@ on:
         required: true
         default: false
         type: boolean
+      deploy_backend:
+        description: Deploy Supabase Edge Functions
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -89,3 +94,26 @@ jobs:
       - name: Deploy Pages artifact
         id: deployment
         uses: actions/deploy-pages@v4
+
+  deploy_backend:
+    name: Deploy Supabase Edge Functions
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_backend == true }}
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_REF: ahhmaiazcimegsuihnrg
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Deploy booking functions
+        shell: bash
+        run: |
+          supabase functions deploy create-booking --project-ref "$SUPABASE_PROJECT_REF"
+          supabase functions deploy booking-action --project-ref "$SUPABASE_PROJECT_REF"
+          supabase functions deploy send-reminders --no-verify-jwt --project-ref "$SUPABASE_PROJECT_REF"
