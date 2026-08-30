@@ -20,9 +20,10 @@ describe('EduBook booking workspace', () => {
     expect(wrapper.find('select').exists()).toBe(true)
   })
 
-  it('uses a passwordless email code flow', () => {
+  it('uses password login and exposes forgot-password recovery', () => {
     const wrapper = mount(App)
-    expect(wrapper.text()).toMatch(/发送验证码|Send verification code/)
-    expect(wrapper.find('input[type="password"]').exists()).toBe(false)
+    expect(wrapper.text()).toMatch(/登录|Sign in/)
+    expect(wrapper.text()).toMatch(/忘记密码|Forgot your password/)
+    expect(wrapper.find('input[type="password"]').exists()).toBe(true)
   })
 })
