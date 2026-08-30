@@ -1,0 +1,119 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      deploy_pages:
+        description: Publish the built frontend to GitHub Pages
+        required: true
+        default: false
+        type: boolean
+      deploy_backend:
+        description: Deploy Supabase Edge Functions
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify frontend
+    runs-on: ubuntu-latest
+    outputs:
+      frontend_present: ${{ steps.frontend.outputs.present }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Detect frontend package
+        id: frontend
+        shell: bash
+        run: |
+          if [ -f package.json ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install dependencies
+        if: ${{ steps.frontend.outputs.present == 'true' }}
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Report missing frontend package
+        if: ${{ steps.frontend.outputs.present == 'false' }}
+        run: echo "No package.json yet; frontend verification is reserved for the frontend scaffold iteration."
+
+      - name: Typecheck
+        if: ${{ steps.frontend.outputs.present == 'true' }}
+        run: npm run typecheck
+
+      - name: Unit tests
+        if: ${{ steps.frontend.outputs.present == 'true' }}
+        run: npm run test:unit -- --run
+
+      - name: Build
+        if: ${{ steps.frontend.outputs.present == 'true' }}
+        run: npm run build
+
+      - name: Upload Pages artifact
+        if: ${{ steps.frontend.outputs.present == 'true' && github.event_name == 'workflow_dispatch' && inputs.deploy_pages == true }}
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: verify
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_pages == true && needs.verify.outputs.frontend_present == 'true' }}
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy Pages artifact
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  deploy_backend:
+    name: Deploy Supabase Edge Functions
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_backend == true }}
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_REF: ahhmaiazcimegsuihnrg
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Deploy booking functions
+        shell: bash
+        run: |
+          supabase functions deploy create-booking --project-ref "$SUPABASE_PROJECT_REF"
+          supabase functions deploy booking-action --project-ref "$SUPABASE_PROJECT_REF"
+          supabase functions deploy send-reminders --no-verify-jwt --project-ref "$SUPABASE_PROJECT_REF"
