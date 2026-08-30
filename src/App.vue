@@ -127,7 +127,7 @@ async function resendResetCode() {
 async function resendSignupCode() {
   if (!authForm.value.email || signupCooldown.value) return
   busy.value = true; errorMessage.value = ''
-  try { const result = await supabase.auth.signUp({ email: authForm.value.email, password: authForm.value.password, options: { data: { display_name: authForm.value.displayName, role: authForm.value.role, timezone: authForm.value.timezone } } }); if (result.error) throw result.error; resetCode.value = ''; startCooldown('signup'); showToast('新的注册验证码已发送') } catch (error) { setError(error) } finally { busy.value = false }
+  try { const result = await supabase.auth.resend({ type: 'signup', email: authForm.value.email }); if (result.error) throw result.error; resetCode.value = ''; startCooldown('signup'); showToast('新的注册验证码已发送') } catch (error) { setError(error) } finally { busy.value = false }
 }
 
 async function ensureProfile(id: string, email: string) {
