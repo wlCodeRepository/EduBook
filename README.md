@@ -9,7 +9,39 @@ EduBook 是一个面向学生和老师的课程预约系统，采用 GitHub + Su
 
 ## 当前状态
 
-当前仓库处于设计阶段，设计文档与实施计划位于 [`docs/plans`](./docs/plans)。
+当前仓库处于设计与工程化准备阶段，设计文档与实施计划位于 [`docs/plans`](./docs/plans)。CI、Supabase 本地开发和 GitHub Pages 发布说明位于 [`docs/deployment`](./docs/deployment)。
+
+## 本地启动
+
+当前尚未加入前端 `package.json`。前端骨架加入后，在项目根目录执行：
+
+```bash
+npm ci
+npm run dev
+```
+
+预期的验证 scripts 为 `typecheck`、`test:unit` 和 `build`。没有 lockfile 的首次开发环境可使用 `npm install`，提交前应生成并提交 `package-lock.json`。
+
+## Supabase 配置
+
+本地 Supabase 配置、迁移和 Edge Functions 说明见 [`docs/deployment/supabase-local.md`](./docs/deployment/supabase-local.md)。复制 [`.env.example`](./.env.example) 为 `.env.local`，只填入 Supabase URL 和 anon public key。预约业务的服务端密钥必须使用 Supabase Secrets。
+
+## GitHub Pages 发布
+
+CI workflow 位于 [`.github/workflows/ci.yml`](./.github/workflows/ci.yml)。Push 和 Pull Request 默认只做验证；配置仓库 Pages 后，可手动运行 workflow 并将 `deploy_pages` 设为 `true` 发布 `dist`。完整说明见 [`docs/deployment/github-pages.md`](./docs/deployment/github-pages.md)。
+
+## 验证
+
+前端骨架加入后执行：
+
+```bash
+npm ci
+npm run typecheck
+npm run test:unit -- --run
+npm run build
+```
+
+验证记录与当前缺少前端工程的说明见 [`docs/verification/engineering-config.md`](./docs/verification/engineering-config.md)。
 
 ## 计划
 
