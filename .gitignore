@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+.vite/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+supabase/.temp/
+
+# Test and coverage output
+coverage/
+playwright-report/
+test-results/
+
+# IDE and OS files
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
