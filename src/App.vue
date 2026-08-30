@@ -11,6 +11,7 @@ const selectedTeacher = ref('林若安')
 const selectedDate = ref('2026-09-02')
 const selectedSlot = ref('15:00')
 const toast = ref('')
+const teacherMode = computed(() => role.value === 'teacher')
 
 const teachers = [
   { name: '林若安', subject: '英语表达 · 雅思口语', meta: '本周 12 个可约时段', initials: 'LA', color: 'coral', next: '今天 15:00' },
@@ -57,10 +58,10 @@ function toggleRole(nextRole: Role) {
         <button class="nav-item" :class="{ active: activeNav === '我的预约' }" @click="activeNav = '我的预约'">
           <span class="nav-icon" aria-hidden="true">↗</span>我的预约 <span class="nav-count">2</span>
         </button>
-        <button v-if="role === 'teacher'" class="nav-item" :class="{ active: activeNav === '预约管理' }" @click="activeNav = '预约管理'">
+        <button v-if="teacherMode" class="nav-item" :class="{ active: activeNav === '预约管理' }" @click="activeNav = '预约管理'">
           <span class="nav-icon" aria-hidden="true">≡</span>预约管理 <span class="nav-count warm">3</span>
         </button>
-        <button v-if="role === 'teacher'" class="nav-item" :class="{ active: activeNav === '排期设置' }" @click="activeNav = '排期设置'">
+        <button v-if="teacherMode" class="nav-item" :class="{ active: activeNav === '排期设置' }" @click="activeNav = '排期设置'">
           <span class="nav-icon" aria-hidden="true">＋</span>排期设置
         </button>
       </nav>
@@ -78,7 +79,7 @@ function toggleRole(nextRole: Role) {
 
       <div v-if="role === 'student' && activeNav === '预约课程'" class="content-grid">
         <section class="primary-column">
-          <div class="role-switch" role="tablist" aria-label="角色切换"><button :class="{ selected: role === 'student' }" role="tab" @click="toggleRole('student')">学生视角</button><button :class="{ selected: role === 'teacher' }" role="tab" @click="toggleRole('teacher')">老师视角</button></div>
+          <div class="role-switch" role="tablist" aria-label="角色切换"><button :class="{ selected: role === 'student' }" role="tab" @click="toggleRole('student')">学生视角</button><button :class="{ selected: teacherMode }" role="tab" @click="toggleRole('teacher')">老师视角</button></div>
           <div class="section-heading"><div><span class="section-kicker">精选老师</span><h2>今天想学点什么？</h2></div><button class="text-button">查看全部 <span>→</span></button></div>
           <div class="teacher-list" aria-label="老师列表">
             <button v-for="teacher in teachers" :key="teacher.name" class="teacher-card" :class="{ chosen: selectedTeacher === teacher.name }" @click="selectedTeacher = teacher.name">
