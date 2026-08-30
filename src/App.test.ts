@@ -26,4 +26,12 @@ describe('EduBook booking workspace', () => {
     expect(wrapper.text()).toMatch(/忘记密码|Forgot your password/)
     expect(wrapper.find('input[type="password"]').exists()).toBe(true)
   })
+
+  it('opens a dedicated password recovery view', async () => {
+    const wrapper = mount(App)
+    await wrapper.get('.forgot-link').trigger('click')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.text()).toMatch(/重置.*密码|Reset.*password/)
+    expect(wrapper.find('input[type="email"]').exists()).toBe(true)
+  })
 })
