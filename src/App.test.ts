@@ -7,39 +7,24 @@ describe('EduBook booking workspace', () => {
     const wrapper = mount(App)
     expect(wrapper.text()).toContain('EduBook')
     expect(wrapper.text()).toContain('Supabase is not configured')
-    expect(wrapper.find('input[type="email"]').exists()).toBe(true)
+    expect(wrapper.find('input[autocomplete="username"]').exists()).toBe(true)
   })
 
   it('offers a Chinese language switch and keeps timezone as a select', async () => {
     const wrapper = mount(App)
     await wrapper.get('.language-button').trigger('click')
     await wrapper.vm.$nextTick()
-    await wrapper.get('.auth-switch').trigger('click')
-    await wrapper.vm.$nextTick()
-    expect(wrapper.text()).toContain('已自动识别时区，可修改')
-    expect(wrapper.find('select').exists()).toBe(true)
+    expect(wrapper.text()).toContain('账户由管理员创建')
+    expect(wrapper.find('.forgot-link').exists()).toBe(false)
   })
 
-  it('uses password login and exposes forgot-password recovery', () => {
+  it('uses username and password login without public email flows', () => {
     const wrapper = mount(App)
     expect(wrapper.text()).toMatch(/登录|Sign in/)
-    expect(wrapper.text()).toMatch(/忘记密码|Forgot your password/)
+    expect(wrapper.text()).toMatch(/账号名|Username/)
+    expect(wrapper.find('input[autocomplete="username"]').exists()).toBe(true)
     expect(wrapper.find('input[type="password"]').exists()).toBe(true)
-  })
-
-  it('opens a dedicated password recovery view', async () => {
-    const wrapper = mount(App)
-    await wrapper.get('.forgot-link').trigger('click')
-    await wrapper.vm.$nextTick()
-    expect(wrapper.text()).toMatch(/重置.*密码|Reset.*password/)
-    expect(wrapper.find('input[type="email"]').exists()).toBe(true)
-  })
-
-  it('starts signup with an email verification step', async () => {
-    const wrapper = mount(App)
-    await wrapper.get('.auth-switch').trigger('click')
-    await wrapper.vm.$nextTick()
-    expect(wrapper.text()).toMatch(/发送验证码|Send verification code/)
-    expect(wrapper.find('select').exists()).toBe(true)
+    expect(wrapper.find('.forgot-link').exists()).toBe(false)
+    expect(wrapper.text()).not.toMatch(/忘记密码|Forgot your password|发送验证码|Send verification code/)
   })
 })

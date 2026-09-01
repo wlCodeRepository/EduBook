@@ -6,6 +6,14 @@ The browser uses Supabase Auth and the public anon/publishable key. It may read 
 
 ## Edge Functions
 
+`POST /functions/v1/admin-create-user`
+
+```json
+{ "username": "alex.chen", "password": "temporary-password", "displayName": "Alex Chen", "role": "STUDENT|TEACHER", "timezone": "Asia/Shanghai" }
+```
+
+Requires an authenticated administrator. The function creates an email-confirmed internal Auth identity and profile without sending email. Passwords are never returned.
+
 `POST /functions/v1/create-booking`
 
 ```json
@@ -20,6 +28,6 @@ The browser uses Supabase Auth and the public anon/publishable key. It may read 
 
 Both require the caller's Supabase access token. A conflict returns HTTP 409 and a validation failure returns HTTP 400.
 
-`POST /functions/v1/send-reminders` requires `X-Reminder-Cron-Secret` and archives expired confirmed bookings before claiming one-hour reminders.
+`POST /functions/v1/send-reminders` archives expired confirmed bookings and returns `delivery: "disabled"`; it never sends or claims reminders.
 
-`POST /functions/v1/process-notifications` requires `X-Notification-Cron-Secret`, claims pending notification logs, sends through Resend, and marks each delivery `SENT` or retryable `FAILED`.
+`POST /functions/v1/process-notifications` returns `delivery: "disabled"` and never sends booking notifications.

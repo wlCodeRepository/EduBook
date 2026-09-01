@@ -9,7 +9,7 @@ EduBook 是一个面向学生和老师的课程预约系统，采用 GitHub + Su
 
 ## 当前状态
 
-当前版本已接入真实 Supabase Auth、用户时区、老师排期、预约申请与老师审核。在线演示地址为 https://wlcoderepository.github.io/EduBook/。通知供应商和 Cron 的配置见 [`docs/deployment/production-secrets.md`](./docs/deployment/production-secrets.md)。
+当前版本已接入真实 Supabase Auth、管理员创建账号、用户时区、老师排期、预约申请与老师审核。在线演示地址为 https://wlcoderepository.github.io/EduBook/。管理员初始化见 [`docs/deployment/admin-accounts.md`](./docs/deployment/admin-accounts.md)。
 
 ## 本地启动
 
@@ -49,7 +49,7 @@ npm run build
 2. 实现注册登录、角色和时区
 3. 实现老师排期与时段生成
 4. 实现预约状态流转和并发保护
-5. 实现邮件通知、课前提醒和历史归档
+5. 保留历史归档，停用邮件通知和课前提醒
 6. 配置 GitHub Pages 发布并完成安全检查
 
 ## 安全约定
