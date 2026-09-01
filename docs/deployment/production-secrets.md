@@ -11,6 +11,8 @@ The public application does not offer sign-up, password recovery, email verifica
 
 After applying the administrator migration, bootstrap the first administrator from the Supabase SQL editor as documented in `docs/deployment/admin-accounts.md`. The service role key is used only by the Edge Function and must never be placed in frontend variables.
 
+Apply every versioned SQL file in `supabase/migrations/` in lexical order. In particular, `202609010004_grant_service_role_table_access.sql` grants database-table access only to the server-side `service_role`; it is required for administrator account creation and does not grant extra browser permissions.
+
 ## Supabase Edge Function Secrets
 
 - `REMINDER_CRON_SECRET`: 已配置，用于课前提醒请求鉴权

@@ -27,3 +27,9 @@
 - Add `src/lib/navigation.test.ts` for administrator-route regression coverage.
 - Run `npm run typecheck`, `npm run test:unit -- --run`, `npm run build`, and `git diff --check`.
 - Merge, publish Pages and Edge Functions, then verify the deployment workflow and public URL.
+
+### Task 4: Restore service-role table privileges
+
+- Add `supabase/migrations/202609010004_grant_service_role_table_access.sql`.
+- Grant application-table DML only to `service_role`; keep browser RLS and authenticated-role grants unchanged.
+- Apply the migration in the Supabase SQL editor before retrying administrator account creation.
