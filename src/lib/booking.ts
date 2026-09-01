@@ -1,4 +1,4 @@
-import type { Availability, BlockedPeriod, Booking } from './types'
+import type { Availability, BlockedPeriod, Booking, BusySlot } from './types'
 
 export interface BookingSlot {
   startAtUtc: string
@@ -52,7 +52,7 @@ export function generateSlots(
   lessonMinutes: number,
   availability: Availability[],
   blocked: BlockedPeriod[],
-  bookings: Booking[],
+  busySlots: Array<BusySlot | Booking>,
   now = new Date(),
 ): BookingSlot[] {
   const result: BookingSlot[] = []
@@ -75,7 +75,7 @@ export function generateSlots(
         const start = localDateTimeToUtc(localDate, localStart, teacherTimezone)
         const end = localDateTimeToUtc(localDate, localEnd, teacherTimezone)
         if (start <= now) continue
-        const unavailable = overlaps(start, end, [...blocked, ...bookings.filter((item) => ['PENDING', 'CONFIRMED'].includes(item.status))])
+        const unavailable = overlaps(start, end, [...blocked, ...busySlots])
         result.push({ startAtUtc: start.toISOString(), endAtUtc: end.toISOString(), localDate, localStart, localEnd, viewerStart: formatViewerTime(start.toISOString(), viewerTimezone), viewerEnd: formatViewerTime(end.toISOString(), viewerTimezone), available: !unavailable })
       }
     }
