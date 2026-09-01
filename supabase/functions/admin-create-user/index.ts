@@ -26,7 +26,11 @@ Deno.serve(async (request) => {
   if (authError || !user) return json({ error: "unauthorized" }, 401);
 
   const admin = createClient(url, serviceRoleKey);
-  const { data: operator } = await admin.from("profiles").select("role").eq("id", user.id).maybeSingle();
+  const { data: operator, error: operatorError } = await admin.from("profiles").select("role").eq("id", user.id).maybeSingle();
+  // A missing service-role secret, database outage, or broken schema must not
+  // masquerade as a permissions failure. The UI can then prompt an operator to
+  // fix the deployment rather than incorrectly telling a real admin to retry.
+  if (operatorError) return json({ error: "operator_lookup_failed" }, 500);
   if (!operator || operator.role !== "ADMIN") return json({ error: "admin_only" }, 403);
 
   const body = await parseJson(request);
