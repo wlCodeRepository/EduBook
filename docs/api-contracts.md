@@ -20,6 +20,8 @@ Requires an authenticated administrator. The function creates an email-confirmed
 { "teacherId": "uuid", "startAtUtc": "2026-09-07T01:00:00.000Z", "endAtUtc": "2026-09-07T02:00:00.000Z" }
 ```
 
+Requires a student identity. The requested future start must be on a 15-minute boundary and the end must exactly match the teacher's configured duration. Teachers are available by default; only teacher-blocked periods and PENDING/CONFIRMED overlaps are rejected.
+
 `POST /functions/v1/booking-action`
 
 ```json

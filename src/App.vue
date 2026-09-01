@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { formatViewerTime, generateSlots, type BookingSlot } from './lib/booking'
+import { createCustomBookingSlot, formatDateTimeInput, formatViewerTime } from './lib/booking'
 import { messages, type Language } from './lib/i18n'
 import { initialNavForRole } from './lib/navigation'
 import { supabase, supabaseConfigured } from './lib/supabase'
@@ -21,7 +21,8 @@ const availability = ref<Availability[]>([])
 const blocked = ref<BlockedPeriod[]>([])
 const busySlots = ref<BusySlot[]>([])
 const selectedTeacherId = ref('')
-const selectedSlot = ref<BookingSlot | null>(null)
+const selectedSlot = ref<ReturnType<typeof createCustomBookingSlot>>(null)
+const bookingStart = ref(formatDateTimeInput(new Date(Date.now() + 15 * 60000), detectedTimezone))
 const weekStart = ref(new Date())
 const activeNav = ref('book')
 const loading = ref(false)
@@ -44,11 +45,11 @@ const title = computed(() => {
   if (activeNav.value === 'history') return tr('My lessons', '我的课程')
   return copy.value.findLesson
 })
-const slots = computed(() => {
-  if (!currentTeacher.value) return []
-  const date = `${weekStart.value.getFullYear()}-${String(weekStart.value.getMonth() + 1).padStart(2, '0')}-${String(weekStart.value.getDate()).padStart(2, '0')}`
-  return generateSlots(date, 7, currentTeacher.value.timezone, viewerTimezone.value, currentTeacher.value.default_lesson_minutes, availability.value, blocked.value, busySlots.value)
+const proposedSlot = computed(() => {
+  if (!currentTeacher.value) return null
+  return createCustomBookingSlot(bookingStart.value, viewerTimezone.value, currentTeacher.value.timezone, currentTeacher.value.default_lesson_minutes, blocked.value, busySlots.value)
 })
+const slots = computed(() => proposedSlot.value ? [proposedSlot.value] : [])
 
 function tr(en: string, zh: string) { return language.value === 'en' ? en : zh }
 function toggleLanguage() { language.value = language.value === 'en' ? 'zh' : 'en'; localStorage.setItem('edubook-language', language.value) }
@@ -96,16 +97,12 @@ async function loadData() {
     }
     const teacherId = profile.value.role === 'TEACHER' ? profile.value.id : selectedTeacherId.value
     if (!teacherId) return
-    const [availabilityResult, blockedResult] = await Promise.all([
-      supabase.from('teacher_availability').select('*').eq('teacher_id', teacherId).order('weekday'),
-      supabase.from('teacher_blocked_periods').select('*').eq('teacher_id', teacherId).order('start_at_utc'),
-    ])
-    if (availabilityResult.error) throw availabilityResult.error
+    const blockedResult = await supabase.from('teacher_blocked_periods').select('*').eq('teacher_id', teacherId).order('start_at_utc')
     if (blockedResult.error) throw blockedResult.error
-    availability.value = availabilityResult.data as Availability[]
     blocked.value = blockedResult.data as BlockedPeriod[]
-    const from = new Date(weekStart.value.getFullYear(), weekStart.value.getMonth(), weekStart.value.getDate()).toISOString()
-    const until = new Date(new Date(from).getTime() + 604800000).toISOString()
+    const proposalStart = proposedSlot.value ? new Date(proposedSlot.value.startAtUtc) : new Date()
+    const from = new Date(proposalStart.getTime() - 86400000).toISOString()
+    const until = new Date(proposalStart.getTime() + 2 * 86400000).toISOString()
     const busyResult = await supabase.functions.invoke('teacher-busy-slots', { body: { teacherId, from, until } })
     if (busyResult.error) throw busyResult.error
     busySlots.value = (busyResult.data?.slots || []) as BusySlot[]
@@ -126,10 +123,17 @@ async function addAvailability() { if (!profile.value) return; try { const resul
 async function removeAvailability(id: string) { const result = await supabase.from('teacher_availability').delete().eq('id', id); if (result.error) await setError(result.error); else await loadData() }
 async function addBlocked() { if (!profile.value || !blockedForm.value.start || !blockedForm.value.end) return; try { const result = await supabase.from('teacher_blocked_periods').insert({ teacher_id: profile.value.id, start_at_utc: new Date(blockedForm.value.start).toISOString(), end_at_utc: new Date(blockedForm.value.end).toISOString(), reason: blockedForm.value.reason || null }); if (result.error) throw result.error; blockedForm.value = { start: '', end: '', reason: '' }; await loadData() } catch (error) { await setError(error) } }
 async function saveMinutes() { if (!profile.value) return; const result = await supabase.rpc('update_my_profile', { p_display_name: profile.value.display_name, p_timezone: profile.value.timezone, p_default_lesson_minutes: profile.value.default_lesson_minutes }); if (result.error) await setError(result.error); else { profile.value = result.data as Profile; showToast(tr('Lesson duration saved.', '课程时长已保存。')) } }
-async function book() { if (!selectedSlot.value || !currentTeacher.value) return; busy.value = true; try { const result = await supabase.functions.invoke('create-booking', { body: { teacherId: currentTeacher.value.id, startAtUtc: selectedSlot.value.startAtUtc, endAtUtc: selectedSlot.value.endAtUtc } }); if (result.error) throw result.error; selectedSlot.value = null; showToast(tr('Booking request sent. Your teacher will confirm it soon.', '预约申请已提交，老师确认后课程才会成立。')); await loadData() } catch (error) { await setError(error) } finally { busy.value = false } }
+async function book() { const slot = proposedSlot.value; if (!slot || !slot.available || !currentTeacher.value) return; busy.value = true; try { const result = await supabase.functions.invoke('create-booking', { body: { teacherId: currentTeacher.value.id, startAtUtc: slot.startAtUtc, endAtUtc: slot.endAtUtc } }); if (result.error) throw result.error; showToast(tr('Booking request sent. Your teacher will confirm it soon.', '预约申请已提交，老师确认后课程才会成立。')); await loadData() } catch (error) { await setError(error) } finally { busy.value = false } }
 async function action(id: string, value: 'confirm' | 'reject' | 'cancel') { try { const result = await supabase.functions.invoke('booking-action', { body: { bookingId: id, action: value } }); if (result.error) throw result.error; showToast(tr('Booking updated.', '预约已更新。')); await loadData() } catch (error) { await setError(error) } }
-function selectTeacher(id: string) { selectedTeacherId.value = id; selectedSlot.value = null; void loadData() }
-function shift(days: number) { weekStart.value = new Date(weekStart.value.getTime() + days * 86400000); selectedSlot.value = null; void loadData() }
+function selectTeacher(id: string) { selectedTeacherId.value = id; selectedSlot.value = proposedSlot.value; void loadData() }
+function refreshProposal() { selectedSlot.value = proposedSlot.value; void loadData() }
+function shift(days: number) {
+  const current = new Date(`${bookingStart.value}:00`)
+  current.setDate(current.getDate() + days)
+  bookingStart.value = formatDateTimeInput(current, viewerTimezone.value)
+  weekStart.value = current
+  refreshProposal()
+}
 
 onMounted(async () => {
   const result = await supabase.auth.getSession()
@@ -159,7 +163,6 @@ onMounted(async () => {
         <button v-if="profile.role !== 'ADMIN'" class="nav-item" :class="{ active: activeNav === 'history' }" @click="activeNav = 'history'">{{ copy.myBookings }}</button>
         <button v-if="profile.role === 'ADMIN'" class="nav-item" :class="{ active: activeNav === 'admin' }" @click="activeNav = 'admin'">{{ tr('User management', '用户管理') }}</button>
         <button v-if="profile.role === 'TEACHER'" class="nav-item" :class="{ active: activeNav === 'requests' }" @click="activeNav = 'requests'">{{ copy.manage }}<span v-if="teacherBookings.filter(item => item.status === 'PENDING').length" class="nav-count">{{ teacherBookings.filter(item => item.status === 'PENDING').length }}</span></button>
-        <button v-if="profile.role === 'TEACHER'" class="nav-item" :class="{ active: activeNav === 'schedule' }" @click="activeNav = 'schedule'">{{ copy.schedule }}</button>
       </nav>
       <div class="profile-mini"><span class="avatar avatar-user">{{ profile.display_name.slice(0, 2) }}</span><div><strong>{{ profile.display_name }}</strong><small>{{ roleLabel(profile.role) }} · {{ profile.timezone }}</small></div><button class="signout" @click="signOut">{{ copy.signOut }}</button></div>
     </aside>
@@ -179,8 +182,9 @@ onMounted(async () => {
       <section v-else-if="activeNav === 'requests' || activeNav === 'history'" class="panel booking-list"><div class="panel-heading"><div><p class="eyebrow">{{ activeNav === 'requests' ? tr('Teacher inbox', '老师收件箱') : tr('Learning history', '学习记录') }}</p><h3>{{ activeNav === 'requests' ? tr('Requests awaiting your decision', '待你处理的预约') : tr('Your booking history', '你的预约记录') }}</h3></div></div><div v-if="(activeNav === 'requests' ? teacherBookings : studentBookings).length" class="booking-records"><div v-for="booking in activeNav === 'requests' ? teacherBookings : studentBookings" :key="booking.id" class="booking-record"><div><strong>{{ formatViewerTime(booking.start_at_utc, viewerTimezone) }}</strong><small>{{ tr('Ends', '结束') }} {{ formatViewerTime(booking.end_at_utc, viewerTimezone) }}</small></div><span class="status-pill" :class="booking.status.toLowerCase()">{{ statusLabel(booking.status) }}</span><div v-if="activeNav === 'requests'" class="row-actions"><button v-if="booking.status === 'PENDING'" class="mini-button" @click="action(booking.id, 'confirm')">{{ copy.confirm }}</button><button v-if="booking.status === 'PENDING'" class="mini-button ghost" @click="action(booking.id, 'reject')">{{ copy.reject }}</button><button v-if="booking.status === 'CONFIRMED'" class="mini-button ghost" @click="action(booking.id, 'cancel')">{{ copy.cancel }}</button></div></div></div><div v-else class="empty-state"><span class="empty-glyph">○</span><h3>{{ activeNav === 'requests' ? tr('No requests yet', '还没有预约申请') : copy.noBookings }}</h3><p>{{ activeNav === 'requests' ? tr('New requests will arrive here after students book an available time.', '学生预约可用时间后，申请会显示在这里。') : tr('Once a teacher confirms your request, it will appear here.', '老师确认预约后，课程记录会显示在这里。') }}</p></div></section>
 
       <section v-else class="booking-workspace">
-        <div class="booking-intro"><p class="eyebrow">{{ copy.shownIn }} · {{ viewerTimezone }}</p><h2>{{ tr('Choose a teacher, then a time that fits.', '选择老师，再挑选适合自己的时间。') }}</h2><p>{{ tr('All times are converted automatically. A submitted request holds the time until the teacher confirms or declines it.', '所有时间会自动转换。提交申请后，该时段将被保留，等待老师确认或拒绝。') }}</p></div>
-        <div v-if="!teachers.length" class="empty-state full-empty"><span class="empty-glyph">＋</span><h3>{{ copy.noTeachers }}</h3><p>{{ tr('There are no teaching accounts yet. An administrator needs to create a teacher and set their weekly availability first.', '目前还没有老师账号。管理员需要先创建老师，再由老师设置每周可授课时间。') }}</p></div>
+        <div class="booking-intro"><p class="eyebrow">{{ copy.shownIn }} · {{ viewerTimezone }}</p><h2>{{ tr('Choose a teacher, then a time that fits.', '选择老师，再挑选适合自己的时间。') }}</h2><p>{{ tr('Teachers are available by default. Pick any future 15-minute time; only confirmed/pending lessons and teacher blackouts are unavailable.', '老师默认可被预约。请选择任意未来的 15 分钟档位；只有已有课程和老师设置的不可预约时段会被拦截。') }}</p></div>
+        <div v-if="teachers.length" class="panel custom-time-picker"><div><p class="eyebrow">{{ tr('Your preferred start time', '选择开始时间') }}</p><strong>{{ tr('15-minute increments', '每 15 分钟一个档位') }}</strong></div><label><span>{{ tr('Time in', '按') }} {{ viewerTimezone }} {{ tr('time', '时间') }}</span><input v-model="bookingStart" type="datetime-local" step="900" @change="refreshProposal" /></label><button class="outline-button" @click="refreshProposal">{{ tr('Check availability', '检查是否可约') }}</button></div>
+        <div v-if="!teachers.length" class="empty-state full-empty"><span class="empty-glyph">＋</span><h3>{{ copy.noTeachers }}</h3><p>{{ tr('There are no teaching accounts yet. An administrator needs to create a teacher first.', '目前还没有老师账号。管理员需要先创建老师账号。') }}</p></div>
         <template v-else><div class="teacher-picker"><button v-for="teacher in teachers" :key="teacher.id" class="teacher-card" :class="{ chosen: currentTeacher?.id === teacher.id }" @click="selectTeacher(teacher.id)"><span class="avatar avatar-teal">{{ teacher.display_name.slice(0, 2) }}</span><span><strong>{{ teacher.display_name }}</strong><small>{{ teacher.default_lesson_minutes }} min · {{ teacher.timezone }}</small></span><span class="teacher-check">{{ currentTeacher?.id === teacher.id ? '✓' : '' }}</span></button></div><div class="availability-layout"><div class="panel time-panel"><div class="panel-heading"><div><p class="eyebrow">{{ copy.calendar }}</p><h3>{{ currentTeacher?.display_name }}</h3></div><div class="date-controls"><button class="icon-button" @click="shift(-7)" aria-label="Previous week">←</button><span>{{ new Intl.DateTimeFormat(language === 'en' ? 'en-US' : 'zh-CN', { month: 'short', day: 'numeric', timeZone: viewerTimezone }).format(weekStart) }}</span><button class="icon-button" @click="shift(7)" aria-label="Next week">→</button></div></div><p class="timezone-note">{{ tr('Times below are shown in', '以下时间按') }} {{ viewerTimezone }} {{ tr('time.', '显示。') }}</p><div v-if="loading" class="loading-state">{{ copy.processing }}</div><div v-else-if="slots.length" class="slot-grid"><button v-for="slot in slots" :key="slot.startAtUtc" class="slot-item" :class="{ selected: selectedSlot?.startAtUtc === slot.startAtUtc, unavailable: !slot.available }" :disabled="!slot.available" @click="selectedSlot = slot"><span>{{ slot.viewerStart }}</span><small>{{ slot.available ? tr('Available', '可预约') : tr('Unavailable', '不可用') }}</small></button></div><div v-else class="empty-inline"><strong>{{ copy.noSlots }}</strong><span>{{ tr('Try another week or ask the teacher to add availability.', '请切换其他日期，或请老师添加可授课时间。') }}</span></div></div><aside class="booking-summary"><p class="eyebrow">{{ copy.bookingConfirm }}</p><h3>{{ selectedSlot ? tr('Ready to request?', '确认提交预约？') : copy.selectTime }}</h3><template v-if="selectedSlot"><div class="summary-detail"><span>{{ tr('Teacher', '老师') }}</span><strong>{{ currentTeacher?.display_name }}</strong></div><div class="summary-detail"><span>{{ tr('Your time', '你的时间') }}</span><strong>{{ selectedSlot.viewerStart }} – {{ selectedSlot.viewerEnd }}</strong></div><div class="summary-detail"><span>{{ tr('Teacher local time', '老师当地时间') }}</span><strong>{{ selectedSlot.localDate }} · {{ selectedSlot.localStart }} – {{ selectedSlot.localEnd }}</strong></div></template><p v-else class="summary-placeholder">{{ tr('Select an available time to review the lesson details.', '选择一个可预约时段，即可查看课程详情。') }}</p><button class="primary-button" :disabled="!selectedSlot || busy" @click="book">{{ busy ? copy.submitting : copy.submit }}</button><small>{{ tr('Your request reserves this time while the teacher decides.', '提交后，该时段会被保留，等待老师处理。') }}</small></aside></div></template>
       </section>
     </section>
