@@ -1,8 +1,9 @@
-export type Role = 'STUDENT' | 'TEACHER'
+export type Role = 'STUDENT' | 'TEACHER' | 'ADMIN'
 export type BookingStatus = 'PENDING' | 'CONFIRMED' | 'REJECTED' | 'CANCELLED' | 'COMPLETED'
 
 export interface Profile {
   id: string
+  username?: string | null
   role: Role
   display_name: string
   email: string

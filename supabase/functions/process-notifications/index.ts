@@ -22,6 +22,9 @@ async function sendEmail(to: string, subject: string, html: string) {
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return options();
   if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+  // Email notifications are intentionally disabled for administrator-managed
+  // accounts. Keep this endpoint as a safe no-op for old cron schedules.
+  return json({ processed: 0, sent: 0, failed: 0, delivery: "disabled" });
   const secret = Deno.env.get("NOTIFICATION_CRON_SECRET");
   if (!secret || request.headers.get("X-Notification-Cron-Secret") !== secret) return json({ error: "unauthorized" }, 401);
   const admin = createClient(url, serviceRoleKey);
