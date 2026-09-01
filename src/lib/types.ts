@@ -41,3 +41,8 @@ export interface Booking {
   teacher?: Profile
   student?: Profile
 }
+
+export interface BusySlot {
+  start_at_utc: string
+  end_at_utc: string
+}

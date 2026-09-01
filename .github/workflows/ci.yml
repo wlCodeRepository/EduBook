@@ -121,5 +121,6 @@ jobs:
           supabase functions deploy create-booking --project-ref "$SUPABASE_PROJECT_REF"
           supabase functions deploy booking-action --project-ref "$SUPABASE_PROJECT_REF"
           supabase functions deploy admin-create-user --project-ref "$SUPABASE_PROJECT_REF"
+          supabase functions deploy teacher-busy-slots --project-ref "$SUPABASE_PROJECT_REF"
           supabase functions deploy send-reminders --no-verify-jwt --project-ref "$SUPABASE_PROJECT_REF"
           supabase functions deploy process-notifications --no-verify-jwt --project-ref "$SUPABASE_PROJECT_REF"
