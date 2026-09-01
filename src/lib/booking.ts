@@ -40,8 +40,40 @@ export function formatViewerTime(utcIso: string, timezone: string) {
   }).format(new Date(utcIso))
 }
 
+export function formatDateTimeInput(date: Date, timezone: string) {
+  const parts = localParts(date, timezone)
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`
+}
+
 function overlaps(start: Date, end: Date, ranges: Array<{ start_at_utc: string; end_at_utc: string }>) {
   return ranges.some((range) => new Date(range.start_at_utc) < end && new Date(range.end_at_utc) > start)
+}
+
+export function createCustomBookingSlot(
+  viewerDateTime: string,
+  viewerTimezone: string,
+  teacherTimezone: string,
+  lessonMinutes: number,
+  blocked: BlockedPeriod[],
+  busySlots: Array<BusySlot | Booking>,
+  now = new Date(),
+): BookingSlot | null {
+  const match = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})$/.exec(viewerDateTime)
+  if (!match || Number(match[3]) % 15 !== 0 || lessonMinutes < 5) return null
+  const start = localDateTimeToUtc(match[1], `${match[2]}:${match[3]}`, viewerTimezone)
+  const end = new Date(start.getTime() + lessonMinutes * 60000)
+  const teacherStart = localParts(start, teacherTimezone)
+  const teacherEnd = localParts(end, teacherTimezone)
+  return {
+    startAtUtc: start.toISOString(),
+    endAtUtc: end.toISOString(),
+    localDate: `${teacherStart.year}-${teacherStart.month}-${teacherStart.day}`,
+    localStart: `${teacherStart.hour}:${teacherStart.minute}`,
+    localEnd: `${teacherEnd.hour}:${teacherEnd.minute}`,
+    viewerStart: formatViewerTime(start.toISOString(), viewerTimezone),
+    viewerEnd: formatViewerTime(end.toISOString(), viewerTimezone),
+    available: start > now && !overlaps(start, end, [...blocked, ...busySlots]),
+  }
 }
 
 export function generateSlots(
