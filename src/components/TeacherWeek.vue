@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref, onMounted, onBeforeUnmount } from "vue";
+import { bookingDisplayStatus } from "../lib/booking-groups";
 import { teacherWeek } from "../lib/teacher-week";
 import type { Booking } from "../lib/types";
 const props = defineProps<{
@@ -7,7 +8,17 @@ const props = defineProps<{
   timezone: string;
   language: string;
 }>();
-const days = computed(() => teacherWeek(props.bookings, props.timezone));
+const now = ref(new Date());
+let timer: ReturnType<typeof setInterval> | undefined;
+onMounted(() => {
+  timer = setInterval(() => {
+    now.value = new Date();
+  }, 30000);
+});
+onBeforeUnmount(() => clearInterval(timer));
+const days = computed(() =>
+  teacherWeek(props.bookings, props.timezone, now.value),
+);
 const zh = computed(() => props.language === "zh");
 function label(date: string) {
   return new Intl.DateTimeFormat(zh.value ? "zh-CN" : "en-GB", {
@@ -50,7 +61,7 @@ function time(value: string) {
           v-for="booking in day.bookings"
           :key="booking.id"
           class="week-lesson"
-          :class="booking.status.toLowerCase()"
+          :class="bookingDisplayStatus(booking, now).toLowerCase()"
         >
           <strong
             >{{ time(booking.start_at_utc) }} –
@@ -60,17 +71,21 @@ function time(value: string) {
             booking.student?.display_name || (zh ? "学生" : "Student")
           }}</span>
           <small>{{
-            booking.status === "PENDING"
+            bookingDisplayStatus(booking, now) === "EXPIRED"
               ? zh
-                ? "待确认"
-                : "Pending"
-              : booking.status === "COMPLETED"
+                ? "已过期"
+                : "Expired"
+              : bookingDisplayStatus(booking, now) === "PENDING"
                 ? zh
-                  ? "已完成"
-                  : "Completed"
-                : zh
-                  ? "已确认"
-                  : "Confirmed"
+                  ? "待确认"
+                  : "Pending"
+                : bookingDisplayStatus(booking, now) === "COMPLETED"
+                  ? zh
+                    ? "已结束"
+                    : "Ended"
+                  : zh
+                    ? "已确认"
+                    : "Confirmed"
           }}</small>
         </div>
         <p v-if="!day.bookings.length" class="week-empty">

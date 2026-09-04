@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, watch } from "vue";
 import { supabase } from "../lib/supabase";
 defineProps<{ language: string }>();
+const emit = defineEmits<{ busy: [value: boolean] }>();
 const password = ref("");
 const confirmation = ref("");
 const saving = ref(false);
+watch(saving, (value) => emit("busy", value), { flush: "sync" });
 const status = ref<"idle" | "mismatch" | "invalid" | "error" | "success">(
   "idle",
 );
