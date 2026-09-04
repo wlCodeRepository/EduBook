@@ -1,5 +1,165 @@
 @import url("https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Noto+Sans+SC:wght@400;500;600;700&display=swap");
 
+.app-select {
+  position: relative;
+  min-width: 0;
+  width: 100%;
+  font-size: 13px;
+}
+.app-select .select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  text-align: left;
+}
+.select-trigger > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.select-trigger:focus-visible,
+.select-trigger[aria-expanded="true"] {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+}
+.select-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 40;
+  min-width: 0;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+  box-shadow: 0 10px 26px #112a311c;
+}
+.select-popover ul {
+  list-style: none;
+  padding: 0;
+  margin: 4px 0 0;
+  max-height: 210px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.select-popover li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.select-popover li.highlighted {
+  background: var(--teal-soft);
+  color: var(--teal);
+}
+.select-popover li[aria-selected="true"] {
+  font-weight: 600;
+}
+.select-empty {
+  color: var(--muted);
+}
+.directory-tools > .app-select {
+  flex: 0 0 180px;
+}
+.password-settings {
+  grid-column: 2;
+}
+input[readonly] {
+  background: var(--canvas);
+  color: var(--muted);
+}
+.field-error {
+  color: var(--warm);
+}
+.week-panel {
+  padding: 24px;
+  min-width: 0;
+}
+.week-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+}
+.week-day {
+  min-width: 0;
+  min-height: 150px;
+  border-top: 3px solid var(--line);
+  background: var(--canvas);
+  padding: 10px 8px;
+  border-radius: 4px;
+}
+.week-day.is-today {
+  border-top-color: var(--teal);
+  background: var(--teal-soft);
+}
+.week-day h4 {
+  font-size: 11px;
+  margin: 0 0 14px;
+  color: var(--muted);
+}
+.week-day h4 span {
+  display: block;
+  color: var(--teal);
+  margin-top: 4px;
+}
+.week-lesson {
+  display: grid;
+  gap: 5px;
+  border-left: 3px solid var(--teal);
+  background: var(--paper);
+  padding: 9px 7px;
+  margin-bottom: 8px;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.week-lesson.pending {
+  border-left-color: var(--gold);
+}
+.week-lesson.completed {
+  border-left-color: var(--muted);
+}
+.week-lesson small,
+.week-empty,
+.week-note {
+  color: var(--muted);
+  font-size: 11px;
+}
+.week-note {
+  margin-top: 18px;
+  line-height: 1.7;
+}
+@media (max-width: 1100px) {
+  .week-days {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+@media (max-width: 700px) {
+  .week-days {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .week-panel {
+    padding: 16px;
+  }
+  .password-settings {
+    grid-column: auto;
+  }
+  .directory-tools > .app-select {
+    flex: 1 1 auto;
+  }
+}
+
 :root {
   --navy: #112a31;
   --teal: #126b68;
@@ -1494,7 +1654,7 @@ p {
   grid-template-columns: 1fr 1fr;
   gap: 14px;
 }
-.create-account-dialog .account-form button {
+.create-account-dialog .account-form > button {
   grid-column: 2;
   justify-self: end;
 }
@@ -1502,6 +1662,7 @@ p {
   margin-bottom: 4px;
 }
 @media (max-width: 980px) {
+  .password-settings { grid-column: auto; }
   .profile-layout {
     grid-template-columns: 1fr;
     gap: 10px;
@@ -1528,7 +1689,7 @@ p {
   .create-account-dialog .account-form {
     grid-template-columns: 1fr;
   }
-  .create-account-dialog .account-form button {
+  .create-account-dialog .account-form > button {
     grid-column: auto;
     justify-self: stretch;
   }
