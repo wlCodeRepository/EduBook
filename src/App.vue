@@ -2,11 +2,11 @@
 import { computed, onMounted, onBeforeUnmount, ref } from "vue";
 import AppSelect from "./components/AppSelect.vue";
 import TeacherWeek from "./components/TeacherWeek.vue";
-import PasswordSettings from "./components/PasswordSettings.vue";
-import {
-  createCustomBookingSlot,
-  formatDateTimeInput,
-} from "./lib/booking";
+import AccountMenu from "./components/AccountMenu.vue";
+import AccountCenter from "./components/AccountCenter.vue";
+import TeacherBookings from "./components/TeacherBookings.vue";
+import { bookingGroup } from "./lib/booking-groups";
+import { createCustomBookingSlot, formatDateTimeInput } from "./lib/booking";
 import { messages, type Language } from "./lib/i18n";
 import { initialNavForRole } from "./lib/navigation";
 import { supabase, supabaseConfigured } from "./lib/supabase";
@@ -89,6 +89,7 @@ const editForm = ref({
   password: "",
 });
 const creating = ref(false);
+const accountSection = ref<"profile" | "password" | null>(null);
 const profileForm = ref({
   displayName: "",
   timezone: detectedTimezone,
@@ -109,7 +110,7 @@ const teacherBookings = computed(() =>
   bookings.value.filter((item) => item.teacher_id === profile.value?.id),
 );
 const pendingTeacherBookings = computed(() =>
-  teacherBookings.value.filter((item) => item.status === "PENDING"),
+  teacherBookings.value.filter((item) => bookingGroup(item) === "pending"),
 );
 const upcomingTeacherBookings = computed(() =>
   teacherBookings.value
@@ -210,7 +211,6 @@ const title = computed(
       overview: tr("Platform overview", "平台总览"),
       people: tr("People & accounts", "人员与账号"),
       bookings: tr("Global bookings", "全局预约"),
-      profile: tr("Personal settings", "个人设置"),
       "teacher-overview": tr("Teaching overview", "授课总览"),
       requests: tr("Booking requests", "预约申请"),
       settings: tr("Lesson settings", "课程设置"),
@@ -553,33 +553,14 @@ async function saveMinutes() {
     await setError(error);
   }
 }
-async function saveProfile() {
-  if (!profile.value) return;
-  busy.value = true;
-  try {
-    const minutes =
-      profile.value.role === "TEACHER"
-        ? profileForm.value.defaultLessonMinutes
-        : profile.value.default_lesson_minutes;
-    const result = await supabase.rpc("update_my_profile", {
-      p_display_name: profileForm.value.displayName,
-      p_timezone: profileForm.value.timezone,
-      p_default_lesson_minutes: minutes,
-    });
-    if (result.error) throw result.error;
-    profile.value = result.data as Profile;
-    profileForm.value = {
-      displayName: profile.value.display_name,
-      timezone: profile.value.timezone,
-      defaultLessonMinutes: profile.value.default_lesson_minutes,
-    };
-    showToast(tr("Personal settings saved.", "个人信息已保存。"));
-    await loadData();
-  } catch (error) {
-    await setError(error);
-  } finally {
-    busy.value = false;
-  }
+async function profileUpdated(value: Profile) {
+  profile.value = value;
+  profileForm.value = {
+    displayName: value.display_name,
+    timezone: value.timezone,
+    defaultLessonMinutes: value.default_lesson_minutes,
+  };
+  await loadData();
 }
 async function refreshProposal() {
   selectedSlot.value = proposal.value;
@@ -779,24 +760,16 @@ onBeforeUnmount(() => {
           >
             {{ tr("My lessons", "我的课程") }}
           </button></template
-        ><button
-          class="nav-item"
-          :class="{ active: activeNav === 'profile' }"
-          @click="activeNav = 'profile'"
         >
-          {{ tr("Profile", "个人信息") }}
-        </button>
       </nav>
-      <div class="profile-mini">
-        <span class="avatar avatar-user">{{
-          initials(profile.display_name)
-        }}</span>
-        <div>
-          <strong>{{ profile.display_name }}</strong
-          ><small>{{ roleLabel(profile.role) }} · {{ profile.timezone }}</small>
-        </div>
-        <button class="signout" @click="signOut">{{ copy.signOut }}</button>
-      </div>
+      <AccountMenu
+        :display-name="profile.display_name"
+        :username="profile.username"
+        :role-label="roleLabel(profile.role)"
+        :language="language"
+        @open="accountSection = $event"
+        @signout="signOut"
+      />
     </aside>
     <section class="main-content">
       <header class="topbar">
@@ -819,123 +792,20 @@ onBeforeUnmount(() => {
         <span>{{ errorMessage }}</span
         ><button class="text-button" @click="loadData">{{ copy.retry }}</button>
       </div>
-      <p v-if="loading" class="week-note" role="status">{{ tr('Loading your workspace…', '正在加载工作台…') }}</p>
-      <section v-if="activeNav === 'profile'" class="profile-layout">
-        <div class="profile-intro">
-          <span class="avatar avatar-user profile-avatar">{{
-            initials(profile.display_name)
-          }}</span>
-          <div>
-            <p class="eyebrow">{{ tr("Your account", "我的账号") }}</p>
-            <h2>
-              {{
-                tr(
-                  "Keep your teaching and learning details current.",
-                  "维护准确的个人资料，让预约时间始终正确。",
-                )
-              }}
-            </h2>
-            <p>
-              {{
-                tr(
-                  "Your username and role are fixed at account creation. Update your name, timezone and password here.",
-                  "登录账号和角色在创建后不可修改。你可以在这里修改名称、时区和密码。",
-                )
-              }}
-            </p>
-          </div>
-        </div>
-        <form class="panel profile-form" @submit.prevent="saveProfile">
-          <div class="panel-heading">
-            <div>
-              <p class="eyebrow">{{ tr("Personal details", "个人资料") }}</p>
-              <h3>{{ tr("Profile preferences", "资料偏好") }}</h3>
-            </div>
-            <span class="role-tag" :class="profile.role.toLowerCase()">{{
-              roleLabel(profile.role)
-            }}</span>
-          </div>
-          <label
-            >{{ tr("Display name", "显示名称")
-            }}<input
-              v-model="profileForm.displayName"
-              required
-              maxlength="120" /></label
-          ><label
-            >{{ tr("Timezone", "时区")
-            }}<AppSelect
-              v-model="profileForm.timezone"
-              :options="zoneOptions"
-              :label="tr('Search timezone', '搜索时区')"
-              searchable
-              :empty-label="tr('No results', '无匹配结果')"
-            /><small>{{
-              tr(
-                "All lesson times are displayed in this timezone.",
-                "所有课程时间会按此时区显示。",
-              )
-            }}</small></label
-          ><label v-if="profile.role === 'TEACHER'"
-            >{{ tr("Default lesson duration", "默认课程时长") }}
-            <div class="inline-field">
-              <input
-                v-model.number="profileForm.defaultLessonMinutes"
-                type="number"
-                min="5"
-                max="240"
-                step="5"
-                required
-              /><span>{{ tr("minutes", "分钟") }}</span>
-            </div>
-            <small>{{
-              tr(
-                "New booking requests must use this duration.",
-                "新的预约申请必须使用该时长。",
-              )
-            }}</small></label
-          >
-          <div class="profile-form-footer">
-            <div>
-              <span>{{ tr("Username", "登录账号") }}</span
-              ><strong>@{{ profile.username || "—" }}</strong>
-            </div>
-            <button class="primary-button" :disabled="busy">
-              {{
-                busy
-                  ? copy.processing
-                  : tr("Save personal settings", "保存个人信息")
-              }}
-            </button>
-          </div>
-        </form>
-        <PasswordSettings :language="language" />
-      </section>
-      <template v-else-if="profile.role === 'ADMIN'"
+      <p v-if="loading" class="week-note" role="status">
+        {{ tr("Loading your workspace…", "正在加载工作台…") }}
+      </p>
+      <AccountCenter
+        v-if="accountSection"
+        :profile="profile"
+        :section="accountSection"
+        :language="language"
+        :zones="zoneOptions"
+        @close="accountSection = null"
+        @updated="profileUpdated"
+      />
+      <template v-if="profile.role === 'ADMIN'"
         ><section v-if="activeNav === 'overview'" class="operations-layout">
-          <div class="overview-hero">
-            <div>
-              <p class="eyebrow">{{ tr("Operations pulse", "运营脉搏") }}</p>
-              <h2>
-                {{
-                  tr(
-                    "Every account and lesson, in one calm view.",
-                    "让每个账号与每次课程，都在同一处清晰呈现。",
-                  )
-                }}
-              </h2>
-              <p>
-                {{
-                  tr(
-                    "Track capacity, pending decisions and the latest platform activity without leaving the workspace.",
-                    "不离开工作台，即可掌握人员规模、待处理预约与最新平台动态。",
-                  )
-                }}
-              </p>
-            </div>
-            <button class="outline-button light" @click="activeNav = 'people'">
-              {{ tr("Manage people", "管理人员") }}
-            </button>
-          </div>
           <div class="stat-grid">
             <article class="stat-card">
               <span>{{ tr("Teachers", "老师") }}</span
@@ -1214,33 +1084,6 @@ onBeforeUnmount(() => {
             :timezone="viewerTimezone"
             :language="language"
           />
-          <div class="overview-hero">
-            <div>
-              <p class="eyebrow">{{ tr("Teaching desk", "授课工作台") }}</p>
-              <h2>
-                {{
-                  tr(
-                    "Your calendar stays open until you protect time.",
-                    "默认开放你的时间，直到你主动保护它。",
-                  )
-                }}
-              </h2>
-              <p>
-                {{
-                  tr(
-                    "Students can request any future 15-minute start. Add blackouts only for the time you need to keep free.",
-                    "学生可预约任意未来的 15 分钟档位；仅需把需要保留的时间设置为不可预约。",
-                  )
-                }}
-              </p>
-            </div>
-            <button
-              class="outline-button light"
-              @click="activeNav = 'settings'"
-            >
-              {{ tr("Set blackout", "设置不可预约") }}
-            </button>
-          </div>
           <div class="stat-grid">
             <article class="stat-card">
               <span>{{ tr("Pending", "待确认") }}</span
@@ -1381,72 +1224,15 @@ onBeforeUnmount(() => {
             </div>
           </section>
         </section>
-        <section v-else class="panel booking-list">
-          <div class="panel-heading">
-            <div>
-              <p class="eyebrow">{{ tr("Decision queue", "待处理队列") }}</p>
-              <h3>{{ tr("Student booking requests", "学生预约申请") }}</h3>
-            </div>
-            <span
-              >{{ pendingTeacherBookings.length }}
-              {{ tr("pending", "待处理") }}</span
-            >
-          </div>
-          <div v-if="teacherBookings.length" class="booking-records">
-            <article
-              v-for="booking in teacherBookings"
-              :key="booking.id"
-              class="booking-record"
-            >
-              <div>
-                <strong>{{
-                  booking.student?.display_name || tr("Student", "学生")
-                }}</strong
-                ><small
-                  >{{ dateInZone(booking.start_at_utc) }} –
-                  {{ dateInZone(booking.end_at_utc) }}</small
-                >
-              </div>
-              <span class="status-pill" :class="booking.status.toLowerCase()">{{
-                statusLabel(booking.status)
-              }}</span>
-              <div class="row-actions">
-                <button
-                  v-if="booking.status === 'PENDING'"
-                  class="mini-button"
-                  @click="action(booking.id, 'confirm')"
-                >
-                  {{ copy.confirm }}</button
-                ><button
-                  v-if="booking.status === 'PENDING'"
-                  class="mini-button ghost"
-                  @click="action(booking.id, 'reject')"
-                >
-                  {{ copy.reject }}</button
-                ><button
-                  v-if="booking.status === 'CONFIRMED'"
-                  class="mini-button ghost"
-                  @click="action(booking.id, 'cancel')"
-                >
-                  {{ copy.cancel }}
-                </button>
-              </div>
-            </article>
-          </div>
-          <div v-else class="empty-state">
-            <span class="empty-glyph">○</span>
-            <h3>{{ tr("No requests yet", "还没有预约申请") }}</h3>
-            <p>
-              {{
-                tr(
-                  "New requests will arrive here when a student chooses an open time.",
-                  "学生选择可预约时间后，申请会显示在这里。",
-                )
-              }}
-            </p>
-          </div>
-        </section></template
-      >
+        <TeacherBookings
+          v-else
+          :bookings="teacherBookings"
+          :timezone="viewerTimezone"
+          :language="language"
+          :loading="loading"
+          :error="errorMessage"
+          @action="action"
+      /></template>
       <template v-else
         ><section v-if="activeNav === 'history'" class="panel booking-list">
           <div class="panel-heading">
