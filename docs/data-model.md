@@ -5,7 +5,7 @@
 - 具体课程、不可预约时段和通知时间使用 `timestamptz`，由 PostgreSQL 统一按 UTC 语义保存。
 - `profiles.timezone` 保存 IANA 时区名称，例如 `America/New_York`、`Asia/Shanghai`。
 - `profiles.default_lesson_minutes` 保存老师默认课程时长（5–240 分钟）；预约必须精确匹配该时长。
-- 每周授课规则保存老师当地的星期和 `time`；生成具体日期时才结合老师时区转换为 UTC。
+- 旧版每周授课规则仍保留在表中以兼容已有数据，但当前产品不再依赖它：老师默认开放，学生可选择任意未来的 15 分钟开始档位。
 - 预约使用半开区间 `[start, end)`，相邻课程允许紧接排列。
 
 ## 预约占用与并发
@@ -21,6 +21,7 @@
 - 预约状态变更不开放给浏览器直连，暂由 `booking-action` Edge Function 通过服务角色执行；函数必须先验证 JWT 和老师身份。
 - `notification_logs` 只允许收件人读取；写入和发送由服务端流程负责。
 - `booking-action` 调用 `apply_booking_action`，使用带原状态条件的 `UPDATE ... RETURNING`，确认/拒绝/取消与 `confirmed_at`/`rejected_at`/`cancelled_at`、通知日志在同一事务内完成；并发重复操作只会有一个成功。
+- 管理员目录及全局数据只通过 `admin-operations` Edge Function 读取/变更。它以调用者 JWT 确认 `ADMIN` 后才使用服务角色；密码只可写不可读，且管理员账号不暴露给常规人员管理操作。
 - `send-reminders` 必须携带 `REMINDER_CRON_SECRET` 对应的请求头。`claim_due_reminders` 使用 `FOR UPDATE SKIP LOCKED` 和可过期 claim 防重复；`complete_notification_claim` 支持成功/失败回写，邮件服务未配置时失败可重试。`archive_expired_bookings` 将已结束的已确认课程标记为 `COMPLETED`。
 
 ## 本地验证

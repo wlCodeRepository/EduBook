@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest'
 import { initialNavForRole } from './navigation'
 
 describe('initialNavForRole', () => {
-  it('takes administrators directly to account management', () => {
-    expect(initialNavForRole('ADMIN')).toBe('admin')
+  it('takes administrators directly to platform overview', () => {
+    expect(initialNavForRole('ADMIN')).toBe('overview')
   })
 
-  it('keeps teachers and students in the booking workspace', () => {
-    expect(initialNavForRole('TEACHER')).toBe('book')
+  it('takes teachers to their desk and students to booking', () => {
+    expect(initialNavForRole('TEACHER')).toBe('teacher-overview')
     expect(initialNavForRole('STUDENT')).toBe('book')
   })
 })

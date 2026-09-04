@@ -14,6 +14,18 @@ The browser uses Supabase Auth and the public anon/publishable key. It may read 
 
 Requires an authenticated administrator. The function creates an email-confirmed internal Auth identity and profile without sending email. Passwords are never returned.
 
+`POST /functions/v1/admin-operations`
+
+Requires an authenticated administrator. The body always contains an `operation` field:
+
+- `list` returns the account directory (including protected administrator rows).
+- `dashboard` returns role/booking counters and the latest platform bookings with display names.
+- `update` accepts `userId`, `displayName`, `role`, `timezone`, and `defaultLessonMinutes` for a teacher/student.
+- `reset_password` accepts `userId` and a write-only `password`.
+- `delete` accepts `userId` and only succeeds for a teacher/student without booking history.
+
+Administrator accounts are deliberately protected from update, password-reset, and delete operations through this endpoint. The browser never receives an Auth admin or service-role credential.
+
 `POST /functions/v1/create-booking`
 
 ```json
