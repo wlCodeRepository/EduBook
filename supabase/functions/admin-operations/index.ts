@@ -102,7 +102,8 @@ Deno.serve(async (request) => {
     const { data, error } = await access.admin.from("profiles").update({ display_name: displayName, role, timezone, default_lesson_minutes: minutes }).eq("id", userId)
       .select("id,username,display_name,role,timezone,default_lesson_minutes,created_at").single();
     if (error) return json({ error: "account_update_failed" }, 500);
-    await access.admin.auth.admin.updateUserById(userId, { user_metadata: { display_name: displayName, role, timezone } });
+    const { error: metadataError } = await access.admin.auth.admin.updateUserById(userId, { user_metadata: { display_name: displayName, role, timezone } });
+    if (metadataError) return json({ error: "auth_metadata_update_failed" }, 500);
     return json({ user: data });
   }
 
