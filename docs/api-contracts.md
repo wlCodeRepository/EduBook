@@ -6,6 +6,8 @@ The browser uses Supabase Auth and the public anon/publishable key. It may read 
 
 ## Edge Functions
 
+Personal password changes use authenticated Supabase Auth `updateUser({ password })`, separately from profile updates. The form requires matching 8–128 character values. Passwords are never stored in profile records or application logs.
+
 Signed-in users update their own display name, timezone, and (for teachers) lesson duration through the authenticated `update_my_profile` RPC. The browser never sends role, username, or password through this profile-preferences flow.
 
 `POST /functions/v1/admin-create-user`
@@ -20,9 +22,9 @@ Requires an authenticated administrator. The function creates an email-confirmed
 
 Requires an authenticated administrator. The body always contains an `operation` field:
 
-- `list` returns the account directory (including protected administrator rows).
+- `list` returns the account directory excluding the authenticated operator. Other administrator rows remain protected.
 - `dashboard` returns role/booking counters and the latest platform bookings with display names.
-- `update` accepts `userId`, `displayName`, `role`, `timezone`, and `defaultLessonMinutes` for a teacher/student.
+- `update` accepts `userId`, `displayName`, `timezone`, and `defaultLessonMinutes` for a teacher/student. Sending `role` or `username` returns HTTP 400 `immutable_account_fields`; both are fixed at creation.
 - `reset_password` accepts `userId` and a write-only `password`.
 - `delete` accepts `userId` and only succeeds for a teacher/student without booking history.
 

@@ -10,10 +10,6 @@ function validTimezone(value: string) {
   catch { return false; }
 }
 
-function editableRole(value: unknown): "TEACHER" | "STUDENT" | null {
-  return value === "TEACHER" || value === "STUDENT" ? value : null;
-}
-
 async function requireAdmin(request: Request) {
   const authorization = request.headers.get("Authorization");
   if (!authorization) return { error: "unauthorized" as const };
@@ -27,9 +23,10 @@ async function requireAdmin(request: Request) {
   return { admin, operatorId: user.id };
 }
 
-async function listAccounts(admin: ReturnType<typeof createClient>) {
+async function listAccounts(admin: ReturnType<typeof createClient>, operatorId: string) {
   const { data, error } = await admin.from("profiles")
     .select("id,username,display_name,role,timezone,default_lesson_minutes,created_at")
+    .neq("id", operatorId)
     .order("created_at", { ascending: false });
   if (error) return json({ error: "account_list_failed" }, 500);
   return json({ users: data });
@@ -79,7 +76,7 @@ Deno.serve(async (request) => {
   const body = await parseJson(request);
   const operation = body.operation;
 
-  if (operation === "list") return listAccounts(access.admin);
+  if (operation === "list") return listAccounts(access.admin, access.operatorId);
   if (operation === "dashboard") return dashboard(access.admin);
 
   const userId = body.userId;
@@ -92,17 +89,17 @@ Deno.serve(async (request) => {
   if (target.role === "ADMIN") return json({ error: "administrator_account_protected" }, 403);
 
   if (operation === "update") {
+    if ('role' in body || 'username' in body) return json({ error: "immutable_account_fields" }, 400);
     const displayName = typeof body.displayName === "string" ? body.displayName.trim() : "";
-    const role = editableRole(body.role);
     const timezone = typeof body.timezone === "string" ? body.timezone : "";
     const minutes = Number(body.defaultLessonMinutes);
-    if (!displayName || displayName.length > 120 || !role || !validTimezone(timezone) || !Number.isInteger(minutes) || minutes < 5 || minutes > 240) {
+    if (!displayName || displayName.length > 120 || !validTimezone(timezone) || !Number.isInteger(minutes) || minutes < 5 || minutes > 240) {
       return json({ error: "invalid_account_profile" }, 400);
     }
-    const { data, error } = await access.admin.from("profiles").update({ display_name: displayName, role, timezone, default_lesson_minutes: minutes }).eq("id", userId)
+    const { data, error } = await access.admin.from("profiles").update({ display_name: displayName, timezone, default_lesson_minutes: minutes }).eq("id", userId)
       .select("id,username,display_name,role,timezone,default_lesson_minutes,created_at").single();
     if (error) return json({ error: "account_update_failed" }, 500);
-    const { error: metadataError } = await access.admin.auth.admin.updateUserById(userId, { user_metadata: { display_name: displayName, role, timezone } });
+    const { error: metadataError } = await access.admin.auth.admin.updateUserById(userId, { user_metadata: { display_name: displayName, timezone } });
     if (metadataError) return json({ error: "auth_metadata_update_failed" }, 500);
     return json({ user: data });
   }

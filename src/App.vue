@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, onBeforeUnmount, ref } from "vue";
+import AppSelect from "./components/AppSelect.vue";
+import TeacherWeek from "./components/TeacherWeek.vue";
+import PasswordSettings from "./components/PasswordSettings.vue";
 import {
   createCustomBookingSlot,
   formatDateTimeInput,
-  formatViewerTime,
 } from "./lib/booking";
 import { messages, type Language } from "./lib/i18n";
 import { initialNavForRole } from "./lib/navigation";
@@ -29,6 +31,9 @@ const detectedTimezone =
 const zones = Array.from(
   new Set([
     detectedTimezone,
+    ...((
+      Intl as typeof Intl & { supportedValuesOf?: (key: string) => string[] }
+    ).supportedValuesOf?.("timeZone") || []),
     "UTC",
     "Asia/Shanghai",
     "Asia/Tokyo",
@@ -79,7 +84,6 @@ const accountForm = ref({
 const editing = ref<AdminUser | null>(null);
 const editForm = ref({
   displayName: "",
-  role: "TEACHER" as "TEACHER" | "STUDENT",
   timezone: detectedTimezone,
   defaultLessonMinutes: 60,
   password: "",
@@ -118,6 +122,7 @@ const upcomingTeacherBookings = computed(() =>
 const filteredUsers = computed(() =>
   users.value.filter(
     (user) =>
+      user.id !== profile.value?.id &&
       (roleFilter.value === "ALL" || user.role === roleFilter.value) &&
       (!search.value.trim() ||
         `${user.display_name} ${user.username || ""} ${user.timezone}`
@@ -140,6 +145,19 @@ const proposal = computed(() =>
 function tr(en: string, zh: string) {
   return language.value === "en" ? en : zh;
 }
+const zoneOptions = computed(() =>
+  Array.from(
+    new Set([...zones, profileForm.value.timezone, editForm.value.timezone]),
+  ).map((value) => ({ value, label: value })),
+);
+const roleOptions = computed(() => [
+  { value: "TEACHER" as const, label: tr("Teacher", "老师") },
+  { value: "STUDENT" as const, label: tr("Student", "学生") },
+]);
+const filterOptions = computed(() => [
+  { value: "ALL" as const, label: tr("All roles", "全部角色") },
+  ...roleOptions.value,
+]);
 function toggleLanguage() {
   language.value = language.value === "en" ? "zh" : "en";
   localStorage.setItem("edubook-language", language.value);
@@ -148,7 +166,15 @@ function initials(name: string) {
   return name.slice(0, 2).toUpperCase();
 }
 function dateInZone(value: string, zone = viewerTimezone.value) {
-  return formatViewerTime(value, zone);
+  return new Intl.DateTimeFormat(language.value === "zh" ? "zh-CN" : "en-GB", {
+    timeZone: zone,
+    month: "short",
+    day: "numeric",
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(new Date(value));
 }
 function statusLabel(status: string) {
   return (
@@ -168,9 +194,13 @@ function roleLabel(role: Role) {
       ? tr("Administrator", "管理员")
       : tr("Student", "学生");
 }
+let toastTimer: ReturnType<typeof setTimeout> | undefined;
+let authTimer: ReturnType<typeof setTimeout> | undefined;
+let authSubscription: { unsubscribe: () => void } | undefined;
 function showToast(value: string) {
+  clearTimeout(toastTimer);
   toast.value = value;
-  window.setTimeout(() => {
+  toastTimer = setTimeout(() => {
     toast.value = "";
   }, 3500);
 }
@@ -203,6 +233,10 @@ async function setError(error: unknown) {
       code = String((context as { error?: string }).error || "");
   }
   const known: Record<string, string> = {
+    immutable_account_fields: tr(
+      "Username and role cannot be changed.",
+      "登录账号和角色不可修改。",
+    ),
     unauthorized: tr(
       "Your session has expired. Please sign in again.",
       "登录已过期，请重新登录。",
@@ -423,7 +457,6 @@ function openEdit(user: AdminUser) {
   editing.value = user;
   editForm.value = {
     displayName: user.display_name,
-    role: user.role === "STUDENT" ? "STUDENT" : "TEACHER",
     timezone: user.timezone,
     defaultLessonMinutes: user.default_lesson_minutes,
     password: "",
@@ -436,7 +469,6 @@ async function saveAccount() {
     await adminOperation("update", {
       userId: editing.value.id,
       displayName: editForm.value.displayName,
-      role: editForm.value.role,
       timezone: editForm.value.timezone,
       defaultLessonMinutes: editForm.value.defaultLessonMinutes,
     });
@@ -603,10 +635,27 @@ onMounted(async () => {
     ? { user: { id: result.data.session.user.id } }
     : null;
   if (session.value) await restore(session.value.user.id);
-  supabase.auth.onAuthStateChange(async (_event, next) => {
+  const { data } = supabase.auth.onAuthStateChange((_event, next) => {
     session.value = next ? { user: { id: next.user.id } } : null;
-    if (next) await restore(next.user.id);
+    clearTimeout(authTimer);
+    if (!next) {
+      profile.value = null;
+      return;
+    }
+    // Auth callbacks run under the session lock; defer API calls until it is released.
+    // Password changes and token refreshes must not reset navigation or unsaved forms.
+    if (profile.value?.id !== next.user.id) {
+      authTimer = setTimeout(() => {
+        void restore(next.user.id).catch(setError);
+      }, 0);
+    }
   });
+  authSubscription = data.subscription;
+});
+onBeforeUnmount(() => {
+  clearTimeout(toastTimer);
+  clearTimeout(authTimer);
+  authSubscription?.unsubscribe();
 });
 </script>
 
@@ -770,6 +819,7 @@ onMounted(async () => {
         <span>{{ errorMessage }}</span
         ><button class="text-button" @click="loadData">{{ copy.retry }}</button>
       </div>
+      <p v-if="loading" class="week-note" role="status">{{ tr('Loading your workspace…', '正在加载工作台…') }}</p>
       <section v-if="activeNav === 'profile'" class="profile-layout">
         <div class="profile-intro">
           <span class="avatar avatar-user profile-avatar">{{
@@ -788,8 +838,8 @@ onMounted(async () => {
             <p>
               {{
                 tr(
-                  "Your username and role are managed by an administrator. You can update the details that shape how EduBook works for you.",
-                  "登录账号和角色由管理员维护；你可以更新会影响个人使用体验的信息。",
+                  "Your username and role are fixed at account creation. Update your name, timezone and password here.",
+                  "登录账号和角色在创建后不可修改。你可以在这里修改名称、时区和密码。",
                 )
               }}
             </p>
@@ -813,11 +863,13 @@ onMounted(async () => {
               maxlength="120" /></label
           ><label
             >{{ tr("Timezone", "时区")
-            }}<select v-model="profileForm.timezone">
-              <option v-for="zone in zones" :key="zone">
-                {{ zone }}
-              </option></select
-            ><small>{{
+            }}<AppSelect
+              v-model="profileForm.timezone"
+              :options="zoneOptions"
+              :label="tr('Search timezone', '搜索时区')"
+              searchable
+              :empty-label="tr('No results', '无匹配结果')"
+            /><small>{{
               tr(
                 "All lesson times are displayed in this timezone.",
                 "所有课程时间会按此时区显示。",
@@ -856,6 +908,7 @@ onMounted(async () => {
             </button>
           </div>
         </form>
+        <PasswordSettings :language="language" />
       </section>
       <template v-else-if="profile.role === 'ADMIN'"
         ><section v-if="activeNav === 'overview'" class="operations-layout">
@@ -1020,17 +1073,18 @@ onMounted(async () => {
                   }}<input v-model="accountForm.displayName" required /></label
                 ><label
                   >{{ tr("Role", "角色")
-                  }}<select v-model="accountForm.role">
-                    <option value="TEACHER">{{ tr("Teacher", "老师") }}</option>
-                    <option value="STUDENT">{{ tr("Student", "学生") }}</option>
-                  </select></label
+                  }}<AppSelect
+                    v-model="accountForm.role"
+                    :options="roleOptions"
+                    :label="tr('Role', '角色')" /></label
                 ><label
                   >{{ tr("Timezone", "时区")
-                  }}<select v-model="accountForm.timezone">
-                    <option v-for="zone in zones" :key="zone">
-                      {{ zone }}
-                    </option>
-                  </select></label
+                  }}<AppSelect
+                    v-model="accountForm.timezone"
+                    :options="zoneOptions"
+                    :label="tr('Search timezone', '搜索时区')"
+                    searchable
+                    :empty-label="tr('No results', '无匹配结果')" /></label
                 ><button class="primary-button" :disabled="busy">
                   {{ tr("Create account", "创建账号") }}
                 </button>
@@ -1047,11 +1101,11 @@ onMounted(async () => {
                     '搜索姓名、账号或时区',
                   )
                 "
-              /><select v-model="roleFilter">
-                <option value="ALL">{{ tr("All roles", "所有角色") }}</option>
-                <option value="TEACHER">{{ tr("Teachers", "老师") }}</option>
-                <option value="STUDENT">{{ tr("Students", "学生") }}</option>
-              </select>
+              /><AppSelect
+                v-model="roleFilter"
+                :options="filterOptions"
+                :label="tr('Filter by role', '按角色筛选')"
+              />
             </div>
             <div v-if="filteredUsers.length" class="directory-list">
               <article
@@ -1155,6 +1209,11 @@ onMounted(async () => {
           v-if="activeNav === 'teacher-overview'"
           class="operations-layout"
         >
+          <TeacherWeek
+            :bookings="teacherBookings"
+            :timezone="viewerTimezone"
+            :language="language"
+          />
           <div class="overview-hero">
             <div>
               <p class="eyebrow">{{ tr("Teaching desk", "授课工作台") }}</p>
@@ -1594,16 +1653,19 @@ onMounted(async () => {
             }}<input v-model="editForm.displayName" required /></label
           ><label
             >{{ tr("Role", "角色")
-            }}<select v-model="editForm.role">
-              <option value="TEACHER">{{ tr("Teacher", "老师") }}</option>
-              <option value="STUDENT">{{ tr("Student", "学生") }}</option>
-            </select></label
+            }}<input :value="roleLabel(editing.role)" readonly /></label
+          ><label
+            >{{ tr("Username (cannot be changed)", "登录账号（不可修改）")
+            }}<input :value="editing.username || ''" readonly /></label
           ><label
             >{{ tr("Timezone", "时区")
-            }}<select v-model="editForm.timezone">
-              <option v-for="zone in zones" :key="zone">{{ zone }}</option>
-            </select></label
-          ><label
+            }}<AppSelect
+              v-model="editForm.timezone"
+              :options="zoneOptions"
+              :label="tr('Search timezone', '搜索时区')"
+              searchable
+              :empty-label="tr('No results', '无匹配结果')" /></label
+          ><label v-if="editing.role === 'TEACHER'"
             >{{ tr("Lesson duration (minutes)", "课程时长（分钟）")
             }}<input
               v-model.number="editForm.defaultLessonMinutes"
