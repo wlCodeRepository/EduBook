@@ -6,6 +6,8 @@ The browser uses Supabase Auth and the public anon/publishable key. It may read 
 
 ## Edge Functions
 
+Signed-in users update their own display name, timezone, and (for teachers) lesson duration through the authenticated `update_my_profile` RPC. The browser never sends role, username, or password through this profile-preferences flow.
+
 `POST /functions/v1/admin-create-user`
 
 ```json
