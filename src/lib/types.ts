@@ -38,6 +38,7 @@ export interface Booking {
   end_at_utc: string
   status: BookingStatus
   cancellation_reason: string | null
+  created_at?: string
   teacher?: Profile
   student?: Profile
 }
@@ -45,4 +46,28 @@ export interface Booking {
 export interface BusySlot {
   start_at_utc: string
   end_at_utc: string
+}
+
+export interface AdminUser {
+  id: string
+  username: string | null
+  display_name: string
+  role: Exclude<Role, 'ADMIN'> | Role
+  timezone: string
+  default_lesson_minutes: number
+  created_at: string
+}
+
+export interface AdminDashboardCounts {
+  teachers: number
+  students: number
+  pending: number
+  confirmed: number
+  completed: number
+  upcoming: number
+}
+
+export interface AdminBooking extends Omit<Booking, 'teacher' | 'student'> {
+  teacher: Pick<Profile, 'display_name' | 'timezone'> | null
+  student: Pick<Profile, 'display_name' | 'timezone'> | null
 }
