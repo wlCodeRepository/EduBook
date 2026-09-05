@@ -36,6 +36,12 @@ function time(value: string) {
     hourCycle: "h23",
   }).format(new Date(value));
 }
+function weekday(date: string) {
+  return new Intl.DateTimeFormat(zh.value ? "zh-CN" : "en-GB", {
+    timeZone: "UTC",
+    weekday: "short",
+  }).format(new Date(`${date}T12:00:00Z`));
+}
 </script>
 <template>
   <section class="panel week-panel">
@@ -54,43 +60,48 @@ function time(value: string) {
         :class="{ 'is-today': day.today }"
       >
         <h4>
-          {{ label(day.key)
-          }}<span v-if="day.today">{{ zh ? "今天" : "Today" }}</span>
-        </h4>
-        <div
-          v-for="booking in day.bookings"
-          :key="booking.id"
-          class="week-lesson"
-          :class="bookingDisplayStatus(booking, now).toLowerCase()"
-        >
-          <strong
-            >{{ time(booking.start_at_utc) }} –
-            {{ time(booking.end_at_utc) }}</strong
-          >
-          <span>{{
-            booking.student?.display_name || (zh ? "学生" : "Student")
+          <span class="weekday">{{ weekday(day.key) }}</span>
+          <span class="day-number">{{ Number(day.key.slice(-2)) }}</span>
+          <span v-if="day.today" class="today-label">{{
+            zh ? "今天" : "Today"
           }}</span>
-          <small>{{
-            bookingDisplayStatus(booking, now) === "EXPIRED"
-              ? zh
-                ? "已过期"
-                : "Expired"
-              : bookingDisplayStatus(booking, now) === "PENDING"
+        </h4>
+        <div class="week-day-lessons">
+          <div
+            v-for="booking in day.bookings"
+            :key="booking.id"
+            class="week-lesson"
+            :class="bookingDisplayStatus(booking, now).toLowerCase()"
+          >
+            <strong
+              >{{ time(booking.start_at_utc) }} –
+              {{ time(booking.end_at_utc) }}</strong
+            >
+            <span>{{
+              booking.student?.display_name || (zh ? "学生" : "Student")
+            }}</span>
+            <small>{{
+              bookingDisplayStatus(booking, now) === "EXPIRED"
                 ? zh
-                  ? "待确认"
-                  : "Pending"
-                : bookingDisplayStatus(booking, now) === "COMPLETED"
+                  ? "已过期"
+                  : "Expired"
+                : bookingDisplayStatus(booking, now) === "PENDING"
                   ? zh
-                    ? "已结束"
-                    : "Ended"
-                  : zh
-                    ? "已确认"
-                    : "Confirmed"
-          }}</small>
+                    ? "待确认"
+                    : "Pending"
+                  : bookingDisplayStatus(booking, now) === "COMPLETED"
+                    ? zh
+                      ? "已结束"
+                      : "Ended"
+                    : zh
+                      ? "已确认"
+                      : "Confirmed"
+            }}</small>
+          </div>
+          <p v-if="!day.bookings.length" class="week-empty">
+            {{ zh ? "暂无课程" : "No lessons" }}
+          </p>
         </div>
-        <p v-if="!day.bookings.length" class="week-empty">
-          {{ zh ? "暂无课程" : "No lessons" }}
-        </p>
       </article>
     </div>
     <p class="week-note">

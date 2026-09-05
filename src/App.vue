@@ -2,6 +2,7 @@
 import { computed, onMounted, onBeforeUnmount, ref } from "vue";
 import AppSelect from "./components/AppSelect.vue";
 import TeacherWeek from "./components/TeacherWeek.vue";
+import SchoolCover from "./components/SchoolCover.vue";
 import AccountMenu from "./components/AccountMenu.vue";
 import AccountCenter from "./components/AccountCenter.vue";
 import TeacherBookings from "./components/TeacherBookings.vue";
@@ -642,6 +643,7 @@ onBeforeUnmount(() => {
 
 <template>
   <main v-if="!session || !profile" class="auth-shell">
+    <SchoolCover :language="language" />
     <section class="auth-card">
       <div class="auth-top">
         <div class="brand">
@@ -652,8 +654,15 @@ onBeforeUnmount(() => {
         </button>
       </div>
       <p class="eyebrow">{{ copy.workspace }}</p>
-      <h1>{{ copy.loginTitle }}</h1>
-      <p class="auth-intro">{{ copy.intro }}</p>
+      <h1>{{ tr("Welcome back.", "欢迎回来。") }}</h1>
+      <p class="auth-intro">
+        {{
+          tr(
+            "Sign in to your learning workspace.",
+            "登录账号，进入你的课程工作台。",
+          )
+        }}
+      </p>
       <p v-if="!supabaseConfigured" class="alert alert-error">
         {{ copy.setupMissing }}
       </p>
@@ -784,9 +793,12 @@ onBeforeUnmount(() => {
           </p>
           <h1>{{ title }}</h1>
         </div>
-        <button class="language-button" @click="toggleLanguage">
-          {{ copy.language }}
-        </button>
+        <div class="topbar-actions">
+          <span class="page-timezone">{{ viewerTimezone }}</span
+          ><button class="language-button" @click="toggleLanguage">
+            {{ copy.language }}
+          </button>
+        </div>
       </header>
       <div v-if="errorMessage" class="alert alert-error">
         <span>{{ errorMessage }}</span
@@ -1077,7 +1089,7 @@ onBeforeUnmount(() => {
       <template v-else-if="profile.role === 'TEACHER'"
         ><section
           v-if="activeNav === 'teacher-overview'"
-          class="operations-layout"
+          class="teacher-layout"
         >
           <TeacherWeek
             :bookings="teacherBookings"
@@ -1310,11 +1322,15 @@ onBeforeUnmount(() => {
           </div>
           <template v-else
             ><div class="teacher-picker">
+              <p class="step-heading">
+                <span>01</span>{{ tr("Your teacher", "选择老师") }}
+              </p>
               <button
                 v-for="teacher in teachers"
                 :key="teacher.id"
                 class="teacher-card"
                 :class="{ chosen: currentTeacher?.id === teacher.id }"
+                :aria-pressed="currentTeacher?.id === teacher.id"
                 @click="selectTeacher(teacher.id)"
               >
                 <span class="avatar avatar-teal">{{
@@ -1333,7 +1349,9 @@ onBeforeUnmount(() => {
             </div>
             <div class="availability-layout">
               <section class="panel time-panel">
-                <p class="eyebrow">{{ tr("Pick a start", "选择开始时间") }}</p>
+                <p class="step-heading">
+                  <span>02</span>{{ tr("Your time", "选择时间") }}
+                </p>
                 <h3>{{ currentTeacher?.display_name }}</h3>
                 <p class="timezone-note">
                   {{
@@ -1369,7 +1387,9 @@ onBeforeUnmount(() => {
                 </div>
               </section>
               <aside class="booking-summary">
-                <p class="eyebrow">{{ tr("Request review", "预约确认") }}</p>
+                <p class="step-heading">
+                  <span>03</span>{{ tr("Your lesson", "确认课程") }}
+                </p>
                 <h3>
                   {{
                     selectedSlot?.available
