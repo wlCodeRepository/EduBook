@@ -2,12 +2,14 @@
 import { computed, onMounted, onBeforeUnmount, ref } from "vue";
 import AppSelect from "./components/AppSelect.vue";
 import TeacherWeek from "./components/TeacherWeek.vue";
-import SchoolCover from "./components/SchoolCover.vue";
 import AccountMenu from "./components/AccountMenu.vue";
 import AccountCenter from "./components/AccountCenter.vue";
 import TeacherBookings from "./components/TeacherBookings.vue";
 import { bookingGroup } from "./lib/booking-groups";
-import { createCustomBookingSlot, formatDateTimeInput } from "./lib/booking";
+import type { BookingSlot } from "./lib/booking";
+import BookingStudio from "./components/BookingStudio.vue";
+import LearningRoom from "./components/LearningRoom.vue";
+import { studioLocalInstant } from "./lib/booking-studio";
 import { messages, type Language } from "./lib/i18n";
 import { initialNavForRole } from "./lib/navigation";
 import { supabase, supabaseConfigured } from "./lib/supabase";
@@ -58,10 +60,14 @@ const bookings = ref<Booking[]>([]);
 const blocked = ref<BlockedPeriod[]>([]);
 const busySlots = ref<BusySlot[]>([]);
 const selectedTeacherId = ref("");
-const bookingStart = ref(
-  formatDateTimeInput(new Date(Date.now() + 15 * 60_000), detectedTimezone),
-);
-const selectedSlot = ref<ReturnType<typeof createCustomBookingSlot>>(null);
+const bookingReceipt = ref<BookingSlot | null>(null);
+const availabilityLoading = ref(false);
+const availabilityReady = ref(false);
+const availabilityRange = ref({
+  from: new Date(Date.now() - 86400000).toISOString(),
+  until: new Date(Date.now() + 10 * 86400000).toISOString(),
+});
+let availabilityRequest = 0;
 const blockedForm = ref({ start: "", end: "", reason: "" });
 const users = ref<AdminUser[]>([]);
 const adminBookings = ref<AdminBooking[]>([]);
@@ -131,18 +137,6 @@ const filteredUsers = computed(() =>
           .toLowerCase()
           .includes(search.value.trim().toLowerCase())),
   ),
-);
-const proposal = computed(() =>
-  currentTeacher.value
-    ? createCustomBookingSlot(
-        bookingStart.value,
-        viewerTimezone.value,
-        currentTeacher.value.timezone,
-        currentTeacher.value.default_lesson_minutes,
-        blocked.value,
-        busySlots.value,
-      )
-    : null,
 );
 function tr(en: string, zh: string) {
   return language.value === "en" ? en : zh;
@@ -233,7 +227,12 @@ async function setError(error: unknown) {
     } else if (context && typeof context === "object" && "error" in context)
       code = String((context as { error?: string }).error || "");
   }
+  if (!code && error instanceof Error) code = error.message;
   const known: Record<string, string> = {
+    invalid_or_ambiguous_local_time: tr(
+      "Choose a 15-minute time in your display timezone. This time may be skipped or repeated by daylight saving time.",
+      "请按显示时区选择15分钟档位。该时间可能因夏令时不存在或重复，请选择其他时间。",
+    ),
     immutable_account_fields: tr(
       "Username and role cannot be changed.",
       "登录账号和角色不可修改。",
@@ -254,6 +253,10 @@ async function setError(error: unknown) {
     student_only: tr(
       "Only students can submit booking requests.",
       "只有学生可以提交预约。",
+    ),
+    invalid_lesson_duration: tr(
+      "The teacher's lesson length has changed or this duration is invalid. Reload and choose again.",
+      "老师的单节时长已变更或所选时长无效，请刷新后重新选择。",
     ),
     slot_unavailable: tr(
       "This time was just taken. Please choose another one.",
@@ -337,31 +340,45 @@ async function loadRole() {
       student: byId.get(item.student_id),
     }));
   } else bookings.value = records;
+  await loadAvailability();
+}
+async function loadAvailability() {
   const teacherId =
-    profile.value.role === "TEACHER"
+    profile.value?.role === "TEACHER"
       ? profile.value.id
       : selectedTeacherId.value;
   if (!teacherId) return;
-  const blockedResult = await supabase
-    .from("teacher_blocked_periods")
-    .select("*")
-    .eq("teacher_id", teacherId)
-    .order("start_at_utc");
-  if (blockedResult.error) throw blockedResult.error;
-  blocked.value = blockedResult.data as BlockedPeriod[];
-  const candidate = proposal.value
-    ? new Date(proposal.value.startAtUtc)
-    : new Date();
-  const busyResult = await supabase.functions.invoke("teacher-busy-slots", {
-    body: {
-      teacherId,
-      from: new Date(candidate.getTime() - 86_400_000).toISOString(),
-      until: new Date(candidate.getTime() + 172_800_000).toISOString(),
-    },
-  });
-  if (busyResult.error) throw busyResult.error;
-  busySlots.value = (busyResult.data?.slots || []) as BusySlot[];
+  const requestId = ++availabilityRequest;
+  availabilityLoading.value = true;
+  availabilityReady.value = false;
+  try {
+    const [blockedResult, busyResult] = await Promise.all([
+      supabase
+        .from("teacher_blocked_periods")
+        .select("*")
+        .eq("teacher_id", teacherId)
+        .order("start_at_utc"),
+      supabase.functions.invoke("teacher-busy-slots", {
+        body: { teacherId, ...availabilityRange.value },
+      }),
+    ]);
+    if (requestId !== availabilityRequest) return;
+    if (blockedResult.error) throw blockedResult.error;
+    if (busyResult.error) throw busyResult.error;
+    blocked.value = blockedResult.data as BlockedPeriod[];
+    busySlots.value = (busyResult.data?.slots || []) as BusySlot[];
+    availabilityReady.value = true;
+  } catch (error) {
+    if (requestId === availabilityRequest) await setError(error);
+  } finally {
+    if (requestId === availabilityRequest) availabilityLoading.value = false;
+  }
 }
+async function changeRange(range: { from: string; until: string }) {
+  availabilityRange.value = range;
+  await loadAvailability();
+}
+
 async function loadData() {
   if (!profile.value) return;
   loading.value = true;
@@ -515,8 +532,14 @@ async function addBlocked() {
   try {
     const result = await supabase.from("teacher_blocked_periods").insert({
       teacher_id: profile.value.id,
-      start_at_utc: new Date(blockedForm.value.start).toISOString(),
-      end_at_utc: new Date(blockedForm.value.end).toISOString(),
+      start_at_utc: studioLocalInstant(
+        blockedForm.value.start,
+        viewerTimezone.value,
+      ),
+      end_at_utc: studioLocalInstant(
+        blockedForm.value.end,
+        viewerTimezone.value,
+      ),
       reason: blockedForm.value.reason || null,
     });
     if (result.error) throw result.error;
@@ -526,6 +549,14 @@ async function addBlocked() {
   } catch (error) {
     await setError(error);
   }
+}
+function blockDate(date: string) {
+  blockedForm.value = {
+    start: `${date}T09:00`,
+    end: `${date}T10:00`,
+    reason: "",
+  };
+  activeNav.value = "settings";
 }
 async function removeBlocked(id: string) {
   try {
@@ -563,13 +594,15 @@ async function profileUpdated(value: Profile) {
   };
   await loadData();
 }
-async function refreshProposal() {
-  selectedSlot.value = proposal.value;
-  await loadRole();
-}
-async function book() {
-  const slot = proposal.value;
-  if (!slot || !slot.available || !currentTeacher.value) return;
+async function book(slot: BookingSlot) {
+  if (
+    busy.value ||
+    availabilityLoading.value ||
+    !availabilityReady.value ||
+    !slot.available ||
+    !currentTeacher.value
+  )
+    return;
   busy.value = true;
   try {
     const result = await supabase.functions.invoke("create-booking", {
@@ -580,15 +613,17 @@ async function book() {
       },
     });
     if (result.error) throw result.error;
+    bookingReceipt.value = { ...slot };
     showToast(
       tr(
         "Booking request sent. The time is now reserved while your teacher decides.",
         "预约申请已提交，该时段会保留至老师处理。",
       ),
     );
-    selectedSlot.value = null;
+
     await loadData();
   } catch (error) {
+    await loadAvailability();
     await setError(error);
   } finally {
     busy.value = false;
@@ -607,9 +642,9 @@ async function action(id: string, value: "confirm" | "reject" | "cancel") {
   }
 }
 async function selectTeacher(id: string) {
+  bookingReceipt.value = null;
   selectedTeacherId.value = id;
-  selectedSlot.value = null;
-  await loadRole();
+  await loadAvailability();
 }
 onMounted(async () => {
   const result = await supabase.auth.getSession();
@@ -642,8 +677,8 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <main v-if="!session || !profile" class="auth-shell">
-    <SchoolCover :language="language" />
+  <main v-if="!session || !profile" class="auth-shell space-auth">
+    <LearningRoom :language="language" />
     <section class="auth-card">
       <div class="auth-top">
         <div class="brand">
@@ -697,7 +732,11 @@ onBeforeUnmount(() => {
       </p>
     </section>
   </main>
-  <div v-else class="app-shell">
+  <div
+    v-else
+    class="app-shell"
+    :class="{ 'learning-shell': profile.role !== 'ADMIN' }"
+  >
     <aside class="sidebar">
       <div class="brand">
         <span class="brand-mark">E</span><span>EduBook</span>
@@ -1095,6 +1134,8 @@ onBeforeUnmount(() => {
             :bookings="teacherBookings"
             :timezone="viewerTimezone"
             :language="language"
+            can-block
+            @block-date="blockDate"
           />
           <div class="stat-grid">
             <article class="stat-card">
@@ -1200,10 +1241,18 @@ onBeforeUnmount(() => {
               <input
                 v-model="blockedForm.start"
                 type="datetime-local"
+                step="900"
+                :aria-label="
+                  tr('Start time', '开始时间') + ' · ' + viewerTimezone
+                "
                 required
               /><input
                 v-model="blockedForm.end"
                 type="datetime-local"
+                step="900"
+                :aria-label="
+                  tr('End time', '结束时间') + ' · ' + viewerTimezone
+                "
                 required
               /><input
                 v-model="blockedForm.reason"
@@ -1286,163 +1335,30 @@ onBeforeUnmount(() => {
             </p>
           </div>
         </section>
-        <section v-else class="booking-workspace">
-          <div class="booking-intro">
-            <p class="eyebrow">
-              {{ tr("Shown in", "当前显示时区") }} · {{ viewerTimezone }}
-            </p>
-            <h2>
-              {{
-                tr(
-                  "Choose a teacher, then a time that fits.",
-                  "选择老师，再挑选适合你的时间。",
-                )
-              }}
-            </h2>
-            <p>
-              {{
-                tr(
-                  "Teachers are open by default. Select any future 15-minute start; existing lessons and teacher blackouts are unavailable.",
-                  "老师默认可被预约。请选择任意未来的 15 分钟档位；已有课程和老师设置的不可预约时段会被拦截。",
-                )
-              }}
-            </p>
-          </div>
-          <div v-if="!teachers.length" class="empty-state full-empty">
-            <span class="empty-glyph">+</span>
-            <h3>{{ tr("No teachers yet", "还没有老师") }}</h3>
-            <p>
-              {{
-                tr(
-                  "An administrator needs to create a teaching account first.",
-                  "管理员需要先创建老师账号。",
-                )
-              }}
-            </p>
-          </div>
-          <template v-else
-            ><div class="teacher-picker">
-              <p class="step-heading">
-                <span>01</span>{{ tr("Your teacher", "选择老师") }}
-              </p>
-              <button
-                v-for="teacher in teachers"
-                :key="teacher.id"
-                class="teacher-card"
-                :class="{ chosen: currentTeacher?.id === teacher.id }"
-                :aria-pressed="currentTeacher?.id === teacher.id"
-                @click="selectTeacher(teacher.id)"
-              >
-                <span class="avatar avatar-teal">{{
-                  initials(teacher.display_name)
-                }}</span
-                ><span
-                  ><strong>{{ teacher.display_name }}</strong
-                  ><small
-                    >{{ teacher.default_lesson_minutes }} min ·
-                    {{ teacher.timezone }}</small
-                  ></span
-                ><span class="teacher-check">{{
-                  currentTeacher?.id === teacher.id ? "✓" : ""
-                }}</span>
-              </button>
-            </div>
-            <div class="availability-layout">
-              <section class="panel time-panel">
-                <p class="step-heading">
-                  <span>02</span>{{ tr("Your time", "选择时间") }}
-                </p>
-                <h3>{{ currentTeacher?.display_name }}</h3>
-                <p class="timezone-note">
-                  {{
-                    tr(
-                      "Enter a time in your timezone. Starts are available every 15 minutes.",
-                      "按你的时区输入时间。每 15 分钟可选一个开始档位。",
-                    )
-                  }}
-                </p>
-                <label class="datetime-field"
-                  ><span>{{ viewerTimezone }}</span
-                  ><input
-                    v-model="bookingStart"
-                    type="datetime-local"
-                    step="900"
-                    @change="refreshProposal" /></label
-                ><button class="outline-button" @click="refreshProposal">
-                  {{ tr("Check availability", "检查是否可约") }}
-                </button>
-                <div
-                  v-if="proposal"
-                  class="proposal-state"
-                  :class="{ available: proposal.available }"
-                >
-                  <strong>{{
-                    proposal.available
-                      ? tr("This time is available", "该时间可以预约")
-                      : tr("This time is unavailable", "该时间不可预约")
-                  }}</strong
-                  ><span
-                    >{{ proposal.viewerStart }} – {{ proposal.viewerEnd }}</span
-                  >
-                </div>
-              </section>
-              <aside class="booking-summary">
-                <p class="step-heading">
-                  <span>03</span>{{ tr("Your lesson", "确认课程") }}
-                </p>
-                <h3>
-                  {{
-                    selectedSlot?.available
-                      ? tr("Ready to request?", "确认提交预约？")
-                      : tr("Choose an available time", "请选择可预约时间")
-                  }}
-                </h3>
-                <template v-if="selectedSlot"
-                  ><div class="summary-detail">
-                    <span>{{ tr("Teacher", "老师") }}</span
-                    ><strong>{{ currentTeacher?.display_name }}</strong>
-                  </div>
-                  <div class="summary-detail">
-                    <span>{{ tr("Your time", "你的时间") }}</span
-                    ><strong
-                      >{{ selectedSlot.viewerStart }} –
-                      {{ selectedSlot.viewerEnd }}</strong
-                    >
-                  </div>
-                  <div class="summary-detail">
-                    <span>{{ tr("Teacher local time", "老师当地时间") }}</span
-                    ><strong
-                      >{{ selectedSlot.localDate }} ·
-                      {{ selectedSlot.localStart }} –
-                      {{ selectedSlot.localEnd }}</strong
-                    >
-                  </div></template
-                >
-                <p v-else class="summary-placeholder">
-                  {{
-                    tr(
-                      "Check a time to review the lesson before submitting.",
-                      "检查时间后，即可在提交前确认课程详情。",
-                    )
-                  }}
-                </p>
-                <button
-                  class="primary-button"
-                  :disabled="!selectedSlot?.available || busy"
-                  @click="book"
-                >
-                  {{ busy ? copy.submitting : copy.submit }}</button
-                ><small>{{
-                  tr(
-                    "A pending request reserves this time until the teacher responds.",
-                    "待确认申请会占用该时间，直到老师处理。",
-                  )
-                }}</small>
-              </aside>
-            </div></template
-          >
-        </section></template
-      >
+        <div v-else>
+          <LearningRoom
+            :name="currentTeacher?.display_name"
+            :minutes="currentTeacher?.default_lesson_minutes"
+            :language="language"
+          />
+          <BookingStudio
+            :receipt="bookingReceipt"
+            :teachers="teachers"
+            :selected-teacher-id="selectedTeacherId"
+            :busy-slots="busySlots"
+            :blocked="blocked"
+            :timezone="viewerTimezone"
+            :language="language"
+            :busy="busy"
+            :loading="loading || availabilityLoading"
+            :error="
+              !availabilityReady && !availabilityLoading ? errorMessage : ''
+            "
+            @select-teacher="selectTeacher"
+            @range-change="changeRange"
+            @submit="book"
+          /></div
+      ></template>
     </section>
     <div v-if="editing" class="modal-backdrop" @click.self="editing = null">
       <section class="modal-card">

@@ -39,6 +39,8 @@ export interface Booking {
   status: BookingStatus
   cancellation_reason: string | null
   created_at?: string
+  lesson_minutes?: number
+  lesson_count?: number
   teacher?: Profile
   student?: Profile
 }

@@ -1,0 +1,280 @@
+/* The learner/teacher experience is a space, not an administration sidebar. */
+.space-auth {
+  background: #f7f5ee;
+  padding: 24px;
+  gap: 20px;
+}
+.space-auth > .learning-room {
+  margin: 0;
+  min-height: calc(100dvh - 48px);
+  grid-template-columns: 1fr;
+  align-content: center;
+  padding: 44px;
+}
+.space-auth .room-art {
+  height: 340px;
+}
+.space-auth .room-copy h2 {
+  font-size: 42px;
+}
+.space-auth .auth-card {
+  background: transparent;
+}
+.space-auth .brand-mark {
+  background: #252c2d;
+}
+.space-auth .primary-button {
+  background: #252c2d;
+  border-color: #252c2d;
+  border-radius: 24px;
+}
+.space-auth .room-view-button {
+  right: 20px;
+}
+.space-auth .room-copy > p:last-of-type {
+  max-width: 340px;
+}
+@media (max-width: 680px) {
+  .space-auth {
+    padding: 12px;
+  }
+  .space-auth > .learning-room {
+    min-height: 0;
+    padding: 24px;
+  }
+  .space-auth .room-art {
+    height: 160px;
+  }
+  .space-auth .room-copy h2 {
+    font-size: 30px;
+  }
+  .space-auth .auth-card {
+    padding: 24px 12px;
+  }
+  .space-auth .auth-top {
+    margin-bottom: 16px;
+  }
+}
+.learning-shell {
+  display: block;
+  background: #f7f5ee;
+  min-height: 100dvh;
+  --navy: #252c2d;
+  --ink: #252c2d;
+  --accent: #337e73;
+  --canvas: #f7f5ee;
+  --line: #dedfd5;
+  --muted: #687570;
+}
+.learning-shell > .sidebar {
+  position: relative;
+  top: auto;
+  height: auto;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 36px;
+  padding: 22px max(24px, calc((100vw - 1440px) / 2));
+  background: transparent;
+  color: #252c2d;
+  border-bottom: 1px solid #dedfd5;
+  z-index: 30;
+}
+.learning-shell .brand-mark {
+  background: #252c2d;
+  clip-path: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  font:
+    22px Georgia,
+    serif;
+  padding: 0;
+}
+.learning-shell .workspace-label {
+  display: none;
+}
+.learning-shell .nav-list {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+}
+.learning-shell .nav-item {
+  width: auto;
+  color: #687570;
+  padding: 10px 18px;
+  border: 0;
+  border-radius: 24px;
+  gap: 8px;
+  white-space: nowrap;
+}
+.learning-shell .nav-item.active {
+  background: #252c2d;
+  color: white;
+}
+.learning-shell .nav-item:hover:not(.active) {
+  background: #e5e8df;
+}
+.learning-shell .nav-count {
+  background: #63d9ce;
+  color: #252c2d;
+  border-radius: 50%;
+}
+.learning-shell .account-anchor {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.learning-shell .account-trigger {
+  color: #252c2d;
+  padding: 0;
+}
+.learning-shell .account-trigger .avatar {
+  background: #dce7dc;
+  color: #355c50;
+}
+.learning-shell .account-identity small {
+  color: #687570;
+}
+.learning-shell .account-popover {
+  top: calc(100% + 12px);
+  bottom: auto;
+  left: auto;
+  right: 0;
+}
+.learning-shell .main-content {
+  max-width: 1488px;
+  padding: 30px 32px 64px;
+}
+.learning-shell .topbar {
+  border: 0;
+  padding-bottom: 0;
+  margin-bottom: 24px;
+}
+.learning-shell .topbar h1 {
+  font-family: "Trebuchet MS", "Microsoft YaHei", sans-serif;
+  font-size: 30px;
+  font-weight: 500;
+}
+.learning-shell .topbar .eyebrow {
+  font-size: 12px;
+  letter-spacing: 0;
+}
+.learning-shell .panel {
+  border-radius: 18px;
+  box-shadow: none;
+}
+.learning-shell .week-panel {
+  padding: 0;
+}
+.learning-shell .week-day.is-today {
+  background: #eef8f1;
+}
+.learning-shell .week-day.is-today .day-number,
+.learning-shell .today-label {
+  color: #337e73;
+}
+.learning-shell .teacher-layout > .activity-panel {
+  border-top: 1px solid #dedfd5;
+  background: #eaf0e7;
+}
+.learning-shell .stat-grid {
+  border-radius: 18px;
+  overflow: hidden;
+}
+.learning-shell .primary-button {
+  border-radius: 22px;
+}
+.learning-shell .queue-tabs button[aria-pressed="true"] {
+  border-color: #337e73;
+}
+.learning-shell .request-table-heading {
+  background: #e5e8df;
+  border-radius: 12px 12px 0 0;
+}
+.learning-shell .account-trigger:hover {
+  background: transparent;
+}
+.learning-shell .booking-list {
+  max-width: 1100px;
+  margin: auto;
+}
+.learning-intro {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+.learning-intro h2 {
+  font-weight: 500;
+  font-size: 28px;
+  letter-spacing: -0.03em;
+}
+.learning-intro p {
+  font-size: 13px;
+  color: #687570;
+}
+@media (max-width: 900px) {
+  .learning-shell > .sidebar {
+    gap: 16px;
+    padding: 18px 24px;
+    flex-wrap: wrap;
+  }
+  .learning-shell .account-identity {
+    display: none;
+  }
+  .learning-shell .nav-item {
+    padding: 10px 12px;
+  }
+  .learning-shell .main-content {
+    padding: 24px;
+  }
+  .learning-shell .teacher-layout {
+    grid-template-columns: 1fr;
+  }
+  .learning-intro {
+    flex-direction: column;
+    gap: 10px;
+  }
+}
+@media (max-width: 600px) {
+  .learning-shell > .sidebar {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 18px;
+    padding: 18px 20px;
+  }
+  .learning-shell .nav-list {
+    grid-column: 1/-1;
+    grid-row: 2;
+    overflow: auto;
+  }
+  .learning-shell .nav-item {
+    padding: 9px 16px;
+    border-radius: 24px;
+  }
+  .learning-shell .account-anchor {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .learning-shell .main-content {
+    padding: 22px 16px 40px;
+  }
+  .learning-shell .topbar h1 {
+    font-size: 24px;
+  }
+  .learning-shell .topbar {
+    margin-bottom: 20px;
+  }
+  .learning-intro h2 {
+    font-size: 23px;
+  }
+  .learning-shell .account-popover {
+    right: 0;
+    left: auto;
+  }
+  .learning-shell .brand {
+    font-size: 21px;
+  }
+}

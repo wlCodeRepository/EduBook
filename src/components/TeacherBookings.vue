@@ -123,6 +123,11 @@ function status(b: Booking) {
             >{{ time(booking.start_at_utc) }} —
             {{ time(booking.end_at_utc) }}</small
           >
+          <small v-if="booking.lesson_count"
+            >{{ booking.lesson_count }} {{ zh ? "节" : "lessons" }} ·
+            {{ booking.lesson_minutes }}
+            {{ zh ? "分钟/节" : "min each" }}</small
+          >
         </div>
         <span
           class="status-pill"

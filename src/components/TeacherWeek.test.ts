@@ -27,6 +27,19 @@ function booking(overrides: Partial<Booking> = {}): Booking {
 }
 
 describe("teacher weekly timetable", () => {
+  it("opens a day-specific blackout action and displays the stored lesson count", async () => {
+    const view = mount(TeacherWeek, {
+      props: {
+        bookings: [booking({ lesson_count: 2, lesson_minutes: 30 })],
+        timezone: "UTC",
+        language: "en",
+        canBlock: true,
+      },
+    });
+    await view.get(".week-block-button").trigger("click");
+    expect(view.emitted("block-date")?.[0]).toEqual(["2026-08-31"]);
+    expect(view.get(".week-lesson").text()).toContain("2 lessons");
+  });
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-09-05T00:00:00Z"));

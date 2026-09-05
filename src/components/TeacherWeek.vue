@@ -7,7 +7,9 @@ const props = defineProps<{
   bookings: Booking[];
   timezone: string;
   language: string;
+  canBlock?: boolean;
 }>();
+const emit = defineEmits<{ "block-date": [date: string] }>();
 const now = ref(new Date());
 let timer: ReturnType<typeof setInterval> | undefined;
 onMounted(() => {
@@ -97,10 +99,23 @@ function weekday(date: string) {
                       ? "已确认"
                       : "Confirmed"
             }}</small>
+            <small v-if="booking.lesson_count"
+              >{{ booking.lesson_count }} {{ zh ? "节" : "lessons" }} ·
+              {{ booking.lesson_minutes }}
+              {{ zh ? "分钟/节" : "min each" }}</small
+            >
           </div>
           <p v-if="!day.bookings.length" class="week-empty">
             {{ zh ? "暂无课程" : "No lessons" }}
           </p>
+          <button
+            v-if="canBlock"
+            class="week-block-button"
+            type="button"
+            @click="emit('block-date', day.key)"
+          >
+            {{ zh ? "设置禁约" : "Block time" }}
+          </button>
         </div>
       </article>
     </div>
@@ -113,3 +128,18 @@ function weekday(date: string) {
     </p>
   </section>
 </template>
+<style scoped>
+.week-block-button {
+  padding: 8px 4px;
+  min-height: 36px;
+  font-size: 12px;
+  border: 1px dashed #bacdc1;
+  background: transparent;
+  color: #426c5b;
+  border-radius: 5px;
+  width: 100%;
+}
+.week-block-button:hover {
+  background: #eaf4ed;
+}
+</style>
