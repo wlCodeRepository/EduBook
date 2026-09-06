@@ -41,4 +41,10 @@ Document dimensions matched viewport dimensions in the sampled 390×844 request 
 
 ## Release boundary and recovery
 
+## Production release — September 6
+
+User authorized publication. PR https://github.com/wlCodeRepository/EduBook/pull/30 merged as `131a85201907cf3019b71b6860178c463cce00ab`. PR CI `34010752152` passed. Pages workflow https://github.com/wlCodeRepository/EduBook/actions/runs/34020380168 completed successfully; backend deployment was skipped.
+
+Live URL: https://wlcoderepository.github.io/EduBook/ returned HTTP 200 and referenced `index-v2-CeeB4nhs.js` and `index-BDgy6kx-.css`. Both assets returned HTTP 200; the script contains the all-role campus shell, people directory and booking-step implementation. This confirms frontend release, not live authenticated write E2E. The earlier main backup was preserved. The local-only statement below describes the pre-release checkpoint and is superseded by this publication record.
+
 This iteration is local and has not changed deployed main or production data. Keep the existing main backup intact. Publish only through the project's main-branch deployment workflow after reviewing the branch. Recovery for this UI-only iteration is redeploying the previous frontend commit; no SQL rollback is required.
