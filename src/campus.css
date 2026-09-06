@@ -1,0 +1,1124 @@
+/* Digital Campus: a bounded task stage, not a scrolling dashboard. */
+:root {
+  --campus-ink: #233957;
+  --campus-muted: #596d86;
+  --campus-paper: #fcfdff;
+  --campus-mist: #eaf0f7;
+  --campus-line: #d5deeb;
+  --campus-blue: #5378b5;
+  --campus-coral: #c86454;
+  --ink: var(--campus-ink);
+  --navy: var(--campus-ink);
+  --muted: var(--campus-muted);
+  --line: var(--campus-line);
+  --paper: var(--campus-paper);
+  --canvas: var(--campus-mist);
+  --accent: var(--campus-blue);
+  --teal: #326c79;
+  --teal-soft: #e4f0f3;
+  color: var(--ink);
+  background: var(--canvas);
+  font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+body {
+  min-width: 320px;
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+button {
+  touch-action: manipulation;
+}
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+h1,
+h2,
+h3 {
+  font-family: "Trebuchet MS", "Segoe UI", "Microsoft YaHei", sans-serif;
+  letter-spacing: -0.025em;
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible {
+  outline: 3px solid #5378b5;
+  outline-offset: 3px;
+}
+input {
+  min-width: 0;
+  border-radius: 12px;
+  border-color: var(--line);
+  background: var(--paper);
+  min-height: 44px;
+}
+p {
+  line-height: 1.5;
+}
+fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  display: grid;
+  gap: 16px;
+}
+form {
+  gap: 18px;
+}
+.primary-button {
+  background: var(--campus-ink);
+  border-color: var(--campus-ink);
+  border-radius: 12px;
+  color: white;
+}
+.primary-button:hover:not(:disabled) {
+  background: #345781;
+}
+.outline-button,
+.language-button {
+  border-radius: 12px;
+  background: var(--paper);
+  border-color: var(--line);
+}
+.text-button {
+  color: var(--campus-ink);
+}
+.danger {
+  color: #a93d31;
+}
+.primary-button.danger {
+  color: white;
+  background: #a93d31;
+  border-color: #a93d31;
+}
+.eyebrow {
+  font:
+    600 10px/1.4 "Segoe UI",
+    sans-serif;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+.campus-shell {
+  height: 100dvh;
+  min-height: 420px;
+  display: grid;
+  grid-template-rows: 72px minmax(0, 1fr) 64px;
+  padding: 0 30px;
+  background: var(--campus-mist);
+  overflow: hidden;
+}
+.campus-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: var(--ink);
+  flex-shrink: 0;
+}
+.campus-monogram {
+  font:
+    bold 30px "Trebuchet MS",
+    sans-serif;
+  width: 40px;
+  height: 44px;
+  display: grid;
+  place-content: center;
+  border: 2px solid var(--ink);
+  border-radius: 14px 14px 5px 14px;
+  position: relative;
+  background: var(--paper);
+}
+.campus-monogram > span {
+  position: absolute;
+  color: var(--campus-coral);
+  right: 4px;
+  bottom: 0;
+}
+.campus-brand strong {
+  font:
+    700 19px "Trebuchet MS",
+    sans-serif;
+}
+.campus-brand small {
+  display: block;
+  font:
+    600 8px "Segoe UI",
+    sans-serif;
+  letter-spacing: 0.16em;
+  margin-top: 3px;
+}
+.campus-rail {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+.campus-rail nav {
+  display: flex;
+  background: #dce5f0;
+  border: 1px solid #d1dce9;
+  border-radius: 18px;
+  padding: 4px;
+  gap: 4px;
+}
+.campus-rail nav button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 42px;
+  padding: 9px 22px;
+  border: 0;
+  border-radius: 13px;
+  background: transparent;
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.campus-rail nav button > span:first-child {
+  font-size: 20px;
+}
+.campus-rail nav button[aria-current="page"] {
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 3px 7px #23395712;
+}
+.campus-rail nav small {
+  background: var(--campus-coral);
+  color: white;
+  border-radius: 20px;
+  padding: 1px 6px;
+}
+.campus-content {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  outline: none;
+}
+.campus-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 2px 16px;
+  gap: 16px;
+}
+.campus-header h1 {
+  font-size: clamp(23px, 2.3vw, 34px);
+  margin: 0;
+  line-height: 1.1;
+}
+.campus-header p {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin: 0 0 5px;
+  color: var(--muted);
+}
+.campus-header-tools {
+  display: grid;
+  gap: 4px;
+  text-align: right;
+  font-size: 12px;
+}
+.campus-header-tools small {
+  font:
+    10px ui-monospace,
+    monospace;
+  color: var(--muted);
+}
+.campus-stage {
+  min-height: 0;
+  overflow: auto;
+  border-radius: 24px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  padding: 20px;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.campus-dock {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+.campus-dock > p {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0;
+}
+.campus-dock > p > span {
+  font-size: 22px;
+  vertical-align: middle;
+  margin-right: 8px;
+}
+.campus-dock-label {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+.campus-dock .account-anchor {
+  position: relative;
+  margin: 0;
+  border: 0;
+  padding: 0;
+  width: auto;
+}
+.campus-dock .account-trigger {
+  min-width: 170px;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.campus-dock .avatar {
+  width: 36px;
+  height: 36px;
+  font-size: 12px;
+  border-radius: 12px;
+  background: #d2deed;
+  color: var(--ink);
+}
+.campus-dock .account-identity {
+  display: grid;
+  text-align: left;
+  gap: 2px;
+}
+.campus-dock .account-identity strong {
+  font-size: 12px;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.campus-dock .account-identity small {
+  font-size: 10px;
+  color: var(--muted);
+}
+.campus-dock .account-popover {
+  bottom: calc(100% + 12px);
+  top: auto;
+  left: 0;
+  right: auto;
+  width: 250px;
+  z-index: 100;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: 0 12px 50px #23395722;
+}
+.campus-skip {
+  position: fixed;
+  top: -100px;
+  z-index: 1000;
+  background: white;
+  padding: 12px;
+}
+.campus-skip:focus {
+  top: 10px;
+}
+.campus-loading {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.campus-surface {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 22px;
+  background: var(--paper);
+  min-width: 0;
+}
+.campus-surface h2 {
+  font-size: 22px;
+  margin: 0 0 12px;
+}
+.campus-surface > p {
+  font-size: 13px;
+  color: var(--muted);
+}
+.campus-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.campus-section-heading h2 {
+  margin: 0;
+}
+.campus-empty {
+  padding: 24px 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.campus-stage .alert {
+  margin: 0 0 12px;
+  border-radius: 12px;
+  font-size: 13px;
+}
+.toast {
+  z-index: 10000;
+  border-radius: 14px;
+  max-width: calc(100vw - 32px);
+}
+.campus-drawer,
+.account-dialog {
+  position: fixed;
+  inset: 12px 12px 12px auto;
+  margin: 0;
+  width: min(500px, calc(100vw - 24px));
+  max-width: none;
+  height: calc(100dvh - 24px);
+  max-height: none;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  padding: 0;
+  color: var(--ink);
+  background: var(--paper);
+  box-shadow: 0 24px 90px #15253c30;
+  overflow: auto;
+}
+.campus-drawer::backdrop,
+.account-dialog::backdrop {
+  background: #23395766;
+  backdrop-filter: blur(4px);
+}
+.campus-drawer > header,
+.account-dialog-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 24px;
+  border-bottom: 1px solid var(--line);
+  background: var(--paper);
+}
+.campus-drawer h2,
+.account-dialog-heading h2 {
+  font-size: 26px;
+  margin: 0;
+}
+.campus-drawer header .eyebrow {
+  margin: 0 0 8px;
+}
+.campus-drawer-body {
+  padding: 24px;
+}
+.campus-drawer-body > p {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 0 0 24px;
+}
+.campus-drawer label small {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.campus-role-choice {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.campus-role-choice button,
+.campus-duration-presets button {
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+  color: var(--ink);
+}
+.campus-role-choice button[aria-pressed="true"],
+.campus-duration-presets button[aria-pressed="true"] {
+  background: var(--ink);
+  color: white;
+  border-color: var(--ink);
+}
+.campus-identity-note {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  padding: 16px;
+  background: var(--canvas);
+  border-radius: 14px;
+}
+.campus-identity-note small {
+  grid-column: 1/-1;
+  color: var(--muted);
+}
+.campus-delete-confirm > span {
+  display: grid;
+  place-content: center;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: #f8e7e3;
+  color: #a93d31;
+  font-size: 32px;
+}
+.campus-delete-confirm p {
+  font-size: 14px;
+  color: var(--muted);
+}
+.account-dialog .account-tabs {
+  margin: 20px 24px;
+}
+.account-dialog .account-details-form,
+.account-dialog .password-settings {
+  padding: 0 24px 24px;
+}
+.account-dialog-heading p {
+  font-size: 12px;
+  color: var(--muted);
+}
+.campus-settings {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.campus-policy {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.campus-policy > span {
+  font-size: 42px;
+  color: var(--campus-blue);
+}
+.campus-policy h2 {
+  font-size: 22px;
+  margin: 0 0 5px;
+}
+.campus-policy p {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0;
+}
+.campus-settings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 16px;
+  min-height: 0;
+}
+.campus-settings-grid fieldset {
+  gap: 12px;
+}
+.campus-duration-presets {
+  display: flex;
+  gap: 8px;
+}
+.campus-duration-presets button {
+  flex: 1;
+}
+.campus-duration-example {
+  display: flex;
+  justify-content: space-between;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--canvas);
+  font-size: 12px;
+}
+.campus-block-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border-top: 1px solid var(--line);
+  padding: 12px 0;
+  font-size: 12px;
+}
+.campus-block-row > div {
+  flex: 1;
+}
+.campus-block-row p {
+  margin: 4px 0;
+  color: var(--muted);
+}
+.campus-reservation {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.campus-reservation-intro {
+  display: none;
+}
+.campus-reservation .booking-studio {
+  --ink: var(--campus-ink);
+  --paper: var(--campus-paper);
+  --teal: var(--campus-blue);
+  flex: 1;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  grid-template-columns: minmax(150px, 0.8fr) minmax(0, 2.6fr) minmax(
+      190px,
+      1fr
+    );
+  gap: 20px;
+  align-items: start;
+}
+.campus-reservation .booking-studio h2 {
+  font-size: 20px;
+}
+.campus-reservation .studio-teachers,
+.campus-reservation .lesson-ticket,
+.campus-reservation .studio-schedule {
+  min-width: 0;
+  max-height: 100%;
+  overflow: auto;
+  scrollbar-width: thin;
+}
+.campus-reservation .teacher-choice {
+  padding: 10px;
+}
+.campus-reservation .teacher-choice small {
+  font-size: 10px;
+}
+.campus-reservation .lesson-ticket {
+  position: static;
+  padding: 18px;
+  background: #eaf0f7;
+  border-color: var(--line);
+  border-radius: 18px;
+}
+.campus-reservation .ticket-duration {
+  font-size: 32px;
+}
+.campus-reservation .time-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
+}
+.campus-reservation .time-grid button {
+  min-height: 42px;
+  padding: 5px 2px;
+  font-size: 12px;
+  border-radius: 9px;
+}
+.campus-reservation .time-grid small {
+  font-size: 8px;
+}
+.campus-reservation .lengths {
+  gap: 5px;
+}
+.campus-reservation .lengths button {
+  min-height: 40px;
+  padding: 6px;
+  font-size: 12px;
+}
+.campus-reservation .date-strip {
+  gap: 5px;
+}
+.campus-reservation .date-strip button {
+  min-width: 0;
+  min-height: 58px;
+  padding: 6px 3px;
+  border-radius: 12px;
+}
+.campus-reservation .date-strip strong {
+  font-size: 13px;
+}
+.campus-reservation .date-strip small {
+  font-size: 10px;
+}
+.campus-reservation .period-switch {
+  gap: 4px;
+  flex-wrap: nowrap;
+}
+.campus-reservation .period-switch button {
+  padding: 6px 4px;
+  font-size: 11px;
+  min-height: 38px;
+  flex: 1;
+}
+.campus-reservation .booking-studio button[aria-pressed="true"] {
+  background: #dce8f8;
+  border-color: var(--campus-blue);
+  color: var(--ink);
+}
+.campus-reservation .submit-booking {
+  background: var(--ink);
+  color: white;
+}
+.campus-reservation .booking-receipt {
+  padding: 12px;
+  font-size: 12px;
+  grid-column: 1/-1;
+}
+.campus-reservation .ticket-time {
+  padding: 12px 0;
+}
+.campus-reservation .ticket-time p {
+  font-size: 12px;
+}
+.campus-login {
+  height: 100dvh;
+  min-height: 550px;
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  padding: 22px;
+  gap: 24px;
+  background: var(--campus-mist);
+}
+.campus-login-story {
+  background: #dbe6f4;
+  border-radius: 28px;
+  padding: 28px 40px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+}
+.campus-login-story h1 {
+  font-size: clamp(34px, 4vw, 64px);
+  line-height: 1.05;
+  white-space: pre-line;
+  margin: 20px 0;
+}
+.campus-login-story p:not(.eyebrow) {
+  max-width: 360px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.campus-login-story > .learning-room {
+  height: 220px;
+  min-height: 0;
+  flex-shrink: 1;
+  overflow: hidden;
+  margin: 0;
+}
+.campus-login-story footer {
+  font-size: 11px;
+  color: var(--muted);
+}
+.campus-login-form {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 48px;
+}
+.campus-login-form > .language-button {
+  align-self: end;
+}
+.campus-login-form > div {
+  width: 100%;
+  max-width: 370px;
+  margin: auto;
+}
+.campus-login-form h2 {
+  font-size: 38px;
+  margin: 12px 0;
+}
+.campus-login-form p {
+  font-size: 13px;
+  color: var(--muted);
+}
+.campus-login-form form {
+  margin: 28px 0;
+}
+.campus-login-form .field-hint {
+  font-size: 11px;
+  line-height: 1.7;
+}
+@media (min-width: 1600px) {
+  .campus-shell {
+    padding: 0 max(30px, calc((100vw - 1600px) / 2));
+  }
+  .campus-stage {
+    padding: 26px;
+  }
+}
+@media (max-width: 1000px) {
+  .campus-shell {
+    padding: 0 18px;
+  }
+  .campus-rail nav button {
+    padding: 8px 14px;
+  }
+  .campus-reservation .booking-studio {
+    gap: 12px;
+    grid-template-columns: 145px minmax(0, 1fr) 185px;
+  }
+  .campus-reservation .time-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .campus-dock-label {
+    display: none;
+  }
+  .campus-login-form {
+    padding: 12px 20px;
+  }
+  .campus-login-story {
+    padding: 24px;
+  }
+}
+@media (max-width: 700px) {
+  .campus-shell {
+    height: 100dvh;
+    min-height: 420px;
+    padding: 0 10px;
+    grid-template-rows: 100px minmax(0, 1fr) 54px;
+  }
+  .campus-rail {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 6px;
+    align-content: center;
+  }
+  .campus-brand strong {
+    font-size: 17px;
+  }
+  .campus-brand small {
+    display: none;
+  }
+  .campus-monogram {
+    width: 29px;
+    height: 32px;
+    font-size: 22px;
+    border-radius: 10px 10px 4px 10px;
+  }
+  .campus-rail > .language-button {
+    grid-column: 2;
+    grid-row: 1;
+    min-height: 32px;
+    padding: 4px 10px;
+    font-size: 11px;
+  }
+  .campus-rail nav {
+    grid-row: 2;
+    grid-column: 1/-1;
+    justify-content: center;
+    border-radius: 13px;
+    padding: 2px;
+  }
+  .campus-rail nav button {
+    flex: 1;
+    justify-content: center;
+    font-size: 11px;
+    min-height: 38px;
+    padding: 4px 8px;
+    gap: 5px;
+  }
+  .campus-rail nav button > span:first-child {
+    font-size: 17px;
+  }
+  .campus-header {
+    padding: 5px 3px 10px;
+  }
+  .campus-header h1 {
+    font-size: 21px;
+  }
+  .campus-header p {
+    display: none;
+  }
+  .campus-header-tools {
+    font-size: 10px;
+    gap: 2px;
+  }
+  .campus-header-tools small {
+    font-size: 8px;
+    max-width: 130px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .campus-stage {
+    padding: 12px;
+    border-radius: 18px;
+  }
+  .campus-dock {
+    gap: 8px;
+  }
+  .campus-dock > p {
+    font-size: 9px;
+    max-width: 135px;
+    text-align: right;
+  }
+  .campus-dock > p > span {
+    display: none;
+  }
+  .campus-dock .account-trigger {
+    min-width: 130px;
+  }
+  .campus-dock .account-identity strong {
+    font-size: 11px;
+  }
+  .campus-dock .avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 10px;
+  }
+  .campus-drawer,
+  .account-dialog {
+    inset: 8px;
+    width: calc(100vw - 16px);
+    height: calc(100dvh - 16px);
+    border-radius: 20px;
+  }
+  .campus-drawer > header,
+  .account-dialog-heading {
+    padding: 18px;
+  }
+  .campus-drawer-body {
+    padding: 18px;
+  }
+  .campus-drawer h2,
+  .account-dialog-heading h2 {
+    font-size: 24px;
+  }
+  .campus-reservation .booking-studio {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    gap: 10px;
+    font-size: 12px;
+  }
+  .campus-reservation .studio-step-nav {
+    display: flex;
+    width: 100%;
+    gap: 5px;
+    flex-shrink: 0;
+  }
+  .campus-reservation .studio-step-nav button {
+    flex: 1;
+    min-height: 34px;
+    padding: 6px;
+    font-size: 11px;
+    border: 0;
+    background: var(--canvas);
+  }
+  .campus-reservation .studio-step-nav button[aria-current="step"] {
+    background: var(--ink);
+    color: white;
+  }
+  .campus-reservation .studio-teachers,
+  .campus-reservation .studio-schedule,
+  .campus-reservation .lesson-ticket {
+    display: none;
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+  }
+  .campus-reservation [data-step="teacher"] .studio-teachers,
+  .campus-reservation [data-step="time"] .studio-schedule,
+  .campus-reservation [data-step="ticket"] .lesson-ticket {
+    display: block;
+  }
+  .campus-reservation .booking-studio .studio-step-next {
+    display: block;
+    width: 100%;
+    position: sticky;
+    bottom: 0;
+    margin-top: 10px;
+    background: var(--ink);
+    color: white;
+    min-height: 42px;
+  }
+  .campus-reservation .booking-studio h2 {
+    font-size: 18px;
+    margin-bottom: 8px;
+  }
+  .campus-reservation .studio-schedule > .eyebrow,
+  .campus-reservation .studio-teachers > .eyebrow,
+  .campus-reservation .lesson-ticket > .eyebrow {
+    display: none;
+  }
+  .campus-reservation .schedule-heading .timezone {
+    display: none;
+  }
+  .campus-reservation .date-navigation {
+    margin-bottom: 8px;
+    gap: 4px;
+  }
+  .campus-reservation .date-navigation button {
+    font-size: 9px;
+    min-height: 32px;
+    padding: 4px;
+  }
+  .campus-reservation .date-navigation > span {
+    font-size: 10px;
+  }
+  .campus-reservation .date-strip {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    margin-bottom: 10px;
+    gap: 3px;
+    overflow: visible;
+  }
+  .campus-reservation .date-strip button {
+    min-height: 48px;
+    padding: 4px 1px;
+  }
+  .campus-reservation .date-strip strong {
+    font-size: 10px;
+  }
+  .campus-reservation .date-strip small {
+    font-size: 9px;
+  }
+  .campus-reservation .lengths {
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    margin: 6px 0 10px;
+  }
+  .campus-reservation .lengths button {
+    min-height: 34px;
+    padding: 3px;
+    font-size: 11px;
+  }
+  .campus-reservation .lengths button small {
+    display: none;
+  }
+  .campus-reservation .period-switch {
+    margin: 8px 0;
+  }
+  .campus-reservation .period-switch button {
+    font-size: 9px;
+    padding: 4px 1px;
+    min-height: 32px;
+  }
+  .campus-reservation .time-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 4px;
+  }
+  .campus-reservation .time-grid button {
+    min-height: 36px;
+    font-size: 10px;
+  }
+  .campus-reservation .time-grid button small {
+    display: none;
+  }
+  .campus-reservation .time-grid button.shorter-only {
+    border-style: dashed;
+  }
+  .campus-reservation .time-grid button[disabled] {
+    text-decoration: line-through;
+  }
+  .campus-reservation .time-grid .time-offset {
+    display: block;
+    font-size: 7px;
+  }
+  .campus-reservation .booking-receipt {
+    flex-shrink: 0;
+    padding: 10px;
+    font-size: 11px;
+  }
+  .campus-settings-grid {
+    grid-template-columns: 1fr;
+  }
+  .campus-policy h2 {
+    font-size: 18px;
+  }
+  .campus-policy > span {
+    display: none;
+  }
+  .campus-policy p {
+    font-size: 11px;
+  }
+  .campus-surface {
+    padding: 16px;
+  }
+  .campus-surface h2 {
+    font-size: 19px;
+  }
+  .campus-login {
+    padding: 16px;
+    display: block;
+    min-height: 500px;
+    overflow: auto;
+  }
+  .campus-login-story {
+    display: none;
+  }
+  .campus-login-form {
+    height: 100%;
+    padding: 0 14px;
+  }
+  .campus-login-form > div {
+    max-width: 390px;
+  }
+  .campus-login-form h2 {
+    font-size: 34px;
+  }
+  .campus-login-form form {
+    margin: 22px 0;
+  }
+  .campus-login-form > .language-button {
+    margin-top: 4px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation: none !important;
+    transition: none !important;
+  }
+}
+.campus-dock .account-identity strong {
+  color: var(--campus-ink);
+}
+.campus-reservation .booking-studio .studio-room {
+  display: block;
+  min-height: 0;
+  height: 220px;
+  padding: 0;
+  margin: 18px 0 0;
+  background: #e3ebf4;
+  border-radius: 70px 70px 14px 14px;
+}
+.campus-reservation .booking-studio .studio-room .room-copy {
+  display: none;
+}
+.campus-reservation .booking-studio .studio-room .room-art {
+  height: 220px;
+}
+.campus-reservation .booking-studio .studio-room .room-perspective {
+  transform: scale(0.55);
+  transform-origin: center 45%;
+}
+.campus-reservation .booking-studio .studio-room .room-turn {
+  bottom: 4px;
+  font-size: 10px;
+}
+@media (min-width: 701px) {
+  .campus-reservation .booking-receipt {
+    grid-column: 3;
+    grid-row: 1;
+    align-self: start;
+  }
+  .campus-reservation .studio-teachers {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .campus-reservation .studio-schedule {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .campus-reservation .lesson-ticket {
+    grid-column: 3;
+    grid-row: 1;
+  }
+}
+@media (min-width:701px) and (max-height:820px) {
+  .campus-shell{grid-template-rows:64px minmax(0,1fr) 52px}
+  .campus-header{padding:4px 2px 10px}
+  .campus-stage{padding:16px}
+  .campus-reservation .booking-studio .eyebrow{display:none}
+  .campus-reservation .booking-studio h2{margin:0 0 8px}
+  .campus-reservation .booking-studio .date-navigation{margin:6px 0}
+  .campus-reservation .booking-studio .date-strip{margin-bottom:12px}
+  .campus-reservation .booking-studio fieldset{margin-bottom:4px}
+  .campus-reservation .booking-studio legend{margin-bottom:6px}
+  .campus-reservation .booking-studio .period-switch{margin-top:8px}
+  .campus-reservation .booking-studio .time-section{margin-top:8px}
+  .campus-reservation .booking-studio .time-grid button{min-height:40px;padding:4px 3px}
+}

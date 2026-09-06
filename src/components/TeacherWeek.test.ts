@@ -2,6 +2,8 @@ import { enableAutoUnmount, mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import TeacherWeek from "./TeacherWeek.vue";
 import type { Booking } from "../lib/types";
+import { mockCampusViewport } from './campus-teaching.test-helpers';
+import { nextTick } from 'vue';
 
 enableAutoUnmount(afterEach);
 
@@ -44,7 +46,30 @@ describe("teacher weekly timetable", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-09-05T00:00:00Z"));
   });
-  afterEach(() => vi.useRealTimers());
+  afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
+
+  it('shows only the selected mobile day, retains its block action and follows timezone changes', async () => {
+    const viewport = mockCampusViewport(true);
+    const view = mount(TeacherWeek, { props: { bookings: [booking()], timezone: 'UTC', language: 'en', canBlock: true } });
+    await nextTick();
+    expect(view.findAll('.day-selector button')).toHaveLength(7);
+    expect(view.findAll('.week-day')).toHaveLength(1);
+    expect(view.get('.week-day .day-number').text()).toBe('5');
+    expect(view.findAll('.week-lesson')).toHaveLength(1);
+    await view.get('.day-selector button').trigger('click');
+    expect(view.get('.week-day .day-number').text()).toBe('31');
+    expect(view.get('.day-selector button').attributes('aria-pressed')).toBe('true');
+    await view.get('.week-block-button').trigger('click');
+    expect(view.emitted('block-date')).toEqual([['2026-08-31']]);
+    await view.setProps({ timezone: 'America/Los_Angeles', canBlock: false });
+    expect(view.get('.week-day .day-number').text()).toBe('4');
+    expect(view.find('.week-block-button').exists()).toBe(false);
+    viewport.resize(false);
+    await nextTick();
+    expect(view.findAll('.week-day')).toHaveLength(7);
+    view.unmount();
+    expect(viewport.listeners.size).toBe(0);
+  });
 
   it("renders Monday through Sunday with separate weekdays, dates and empty states", () => {
     const view = mount(TeacherWeek, {
