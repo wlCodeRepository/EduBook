@@ -14,14 +14,14 @@ describe('EduBook booking workspace', () => {
     const wrapper = mount(App)
     await wrapper.get('.language-button').trigger('click')
     await wrapper.vm.$nextTick()
-    expect(wrapper.text()).toContain('账户由管理员创建')
+    expect(wrapper.text()).toContain('使用管理员为你创建的账号登录')
     expect(wrapper.find('.forgot-link').exists()).toBe(false)
   })
 
   it('uses username and password login without public email flows', () => {
     const wrapper = mount(App)
     expect(wrapper.text()).toMatch(/登录|Sign in/)
-    expect(wrapper.text()).toMatch(/账号名|Username/)
+    expect(wrapper.text()).toMatch(/登录账号|Username/)
     expect(wrapper.find('input[autocomplete="username"]').exists()).toBe(true)
     expect(wrapper.find('input[type="password"]').exists()).toBe(true)
     expect(wrapper.find('.forgot-link').exists()).toBe(false)

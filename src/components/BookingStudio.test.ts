@@ -207,6 +207,8 @@ describe("BookingStudio", () => {
       "awaiting teacher confirmation",
     );
     expect(view.find(".conflict").exists()).toBe(false);
-    expect(view.get(".submit-booking").attributes("disabled")).toBeDefined();
+    expect(view.find(".submit-booking").exists()).toBe(false);
+    expect(view.get('.booking-studio').attributes('data-step')).toBe('ticket');
+    expect(view.get('.studio-step-nav button:last-child').attributes('disabled')).toBeUndefined();
   });
 });

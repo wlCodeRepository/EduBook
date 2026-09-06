@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from "vue";
+import LearningRoom from "./LearningRoom.vue";
 import type { Profile, BusySlot, BlockedPeriod } from "../lib/types";
 import type { BookingSlot } from "../lib/booking";
 import {
@@ -31,6 +32,7 @@ const teacher = computed(() =>
   props.teachers.find((t) => t.id === teacherId.value),
 );
 const now = ref(new Date());
+const mobileStep = ref<"teacher" | "time" | "ticket">("teacher");
 const today = computed(() => studioDate(now.value, props.timezone));
 const page = ref(today.value);
 const date = ref(today.value);
@@ -56,6 +58,7 @@ watch(
   () => props.receipt,
   (receipt) => {
     if (receipt) {
+      mobileStep.value = "ticket";
       start.value = "";
       sent.value = false;
     }
@@ -214,10 +217,37 @@ function submit() {
 <template>
   <section
     class="booking-studio"
+    :data-step="mobileStep"
     :aria-label="tr('预约课程', 'Book a lesson')"
     :aria-busy="!error && (loading || busy)"
   >
-    <div v-if="receipt" class="booking-receipt" role="status">
+    <nav class="studio-step-nav" :aria-label="tr('预约步骤', 'Booking steps')">
+      <button
+        type="button"
+        :aria-current="mobileStep === 'teacher' ? 'step' : undefined"
+        :disabled="busy"
+        @click="mobileStep = 'teacher'"
+      >
+        1 · {{ tr("老师", "Teacher") }}
+      </button>
+      <button
+        type="button"
+        :aria-current="mobileStep === 'time' ? 'step' : undefined"
+        :disabled="!teacher || busy"
+        @click="mobileStep = 'time'"
+      >
+        2 · {{ tr("时间", "Time") }}
+      </button>
+      <button
+        type="button"
+        :aria-current="mobileStep === 'ticket' ? 'step' : undefined"
+        :disabled="(!selected?.available && !receipt) || busy"
+        @click="mobileStep = 'ticket'"
+      >
+        3 · {{ tr("确认", "Review") }}
+      </button>
+    </nav>
+    <div v-if="receipt && !selected" class="booking-receipt" role="status">
       <strong>{{
         tr(
           "预约申请已提交 · 待老师确认",
@@ -269,6 +299,21 @@ function submit() {
           >
         </button>
       </div>
+      <LearningRoom
+        v-if="teacher"
+        class="studio-room"
+        :name="teacher.display_name"
+        :minutes="teacher.default_lesson_minutes"
+        :language="language"
+      />
+      <button
+        type="button"
+        class="studio-step-next"
+        :disabled="!teacher || busy"
+        @click="mobileStep = 'time'"
+      >
+        {{ tr("选择时间 →", "Choose time →") }}
+      </button>
     </aside>
 
     <div class="studio-schedule">
@@ -417,9 +462,21 @@ function submit() {
           </div>
         </section>
       </template>
+      <button
+        type="button"
+        class="studio-step-next"
+        :disabled="!selected?.available || locked"
+        @click="mobileStep = 'ticket'"
+      >
+        {{ tr("查看课程票 →", "Review lesson →") }}
+      </button>
     </div>
 
-    <aside class="lesson-ticket" :aria-label="tr('课程票', 'Lesson ticket')">
+    <aside
+      v-if="!receipt || selected"
+      class="lesson-ticket"
+      :aria-label="tr('课程票', 'Lesson ticket')"
+    >
       <p class="eyebrow">{{ tr("课程票 / 03", "LESSON TICKET / 03") }}</p>
       <h2>
         {{ teacher?.display_name || tr("你的下一课", "Your next lesson") }}
@@ -499,6 +556,11 @@ function submit() {
 </template>
 
 <style scoped>
+.studio-step-nav,
+.studio-step-next {
+  display: none;
+}
+
 .booking-studio {
   --ink: #252c2d;
   --paper: #fffefa;

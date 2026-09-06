@@ -1,0 +1,66 @@
+import { enableAutoUnmount, mount } from '@vue/test-utils';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import CampusLessons from './CampusLessons.vue';
+import type { AdminBooking } from '../lib/types';
+import { mockCampusViewport } from './campus-teaching.test-helpers';
+import { nextTick } from 'vue';
+
+enableAutoUnmount(afterEach);
+const row = (id: string, status: AdminBooking['status'], end = '2026-09-06T07:00:00Z'): AdminBooking => ({ id, status, start_at_utc: '2026-09-06T06:00:00Z', end_at_utc: end, teacher_id: 't', student_id: 's', cancellation_reason: null, lesson_count: 2, lesson_minutes: 30, teacher: { display_name: 'Professor Chen', timezone: 'UTC' }, student: { display_name: 'Alex', timezone: 'UTC' } });
+describe('campus course itinerary', () => {
+  beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date('2026-09-05T00:00:00Z')); });
+  afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
+  it('pages five desktop / three mobile rows, resets filters and releases its viewport listener', async () => {
+    const viewport = mockCampusViewport();
+    const view = mount(CampusLessons, { props: { bookings: Array.from({ length: 12 }, (_, index) => row(`lesson-${index}`, 'CONFIRMED')), timezone: 'UTC', language: 'en', mode: 'admin' } });
+    expect(view.findAll('.itinerary-row')).toHaveLength(4);
+    await view.get('[data-page="next"]').trigger('click');
+    expect(view.get('.itinerary-pagination').text()).toContain('2 / 3');
+    viewport.resize(true);
+    await nextTick();
+    expect(view.findAll('.itinerary-row')).toHaveLength(2);
+    expect(view.get('.itinerary-pagination').text()).toContain('1 / 6');
+    await view.get('[data-page="next"]').trigger('click');
+    await view.get('input').setValue('Chen');
+    expect(view.get('.itinerary-pagination').text()).toContain('1 / 6');
+    await view.get('[data-page="next"]').trigger('click');
+    await view.setProps({ bookings: [row('remaining', 'CONFIRMED')] });
+    expect(view.get('.itinerary-pagination').text()).toContain('1 / 1');
+    expect(view.get('[data-page="next"]').attributes('disabled')).toBeDefined();
+    view.unmount();
+    expect(viewport.listeners.size).toBe(0);
+  });
+  it('filters actual groups, searches both admin participants and shows duration snapshots', async () => {
+    const view = mount(CampusLessons, { props: { bookings: [row('confirmed', 'CONFIRMED'), row('pending', 'PENDING'), row('expired', 'PENDING', '2026-09-04T07:00:00Z'), row('cancelled', 'CANCELLED')], timezone: 'Asia/Shanghai', language: 'en', mode: 'admin' } });
+    expect(view.findAll('.itinerary-row')).toHaveLength(1);
+    expect(view.get('.itinerary-row').text()).toContain('Professor Chen');
+    expect(view.get('.itinerary-row').text()).toContain('Alex');
+    expect(view.get('.itinerary-row').text()).toContain('14:00');
+    expect(view.get('.itinerary-row').text()).toContain('2 lessons · 30 min each · 60 min');
+    await view.get('[data-group="pending"]').trigger('click');
+    expect(view.findAll('.itinerary-row')).toHaveLength(1);
+    await view.get('[data-group="history"]').trigger('click');
+    expect(view.findAll('.itinerary-row')).toHaveLength(2);
+    expect(view.text()).toContain('Expired');
+    await view.get('[data-group="all"]').trigger('click');
+    await view.get('input').setValue(' alex ');
+    expect(view.findAll('.itinerary-row')).toHaveLength(4);
+    await view.get('input').setValue('missing');
+    expect(view.text()).toContain('No matching lessons');
+    expect(view.find('[data-action="book"]').exists()).toBe(false);
+  });
+  it('offers student booking only, responds to time and clears its clock', async () => {
+    const count = vi.getTimerCount();
+    const view = mount(CampusLessons, { props: { bookings: [row('confirmed', 'CONFIRMED', '2026-09-05T00:00:30Z')], timezone: 'UTC', language: 'en', mode: 'student' } });
+    await view.get('[data-action="book"]').trigger('click');
+    expect(view.emitted('book')).toEqual([[]]);
+    expect(view.text()).not.toContain('Alex');
+    expect(view.find('.itinerary-row button').exists()).toBe(false);
+    await vi.advanceTimersByTimeAsync(30000);
+    expect(view.findAll('.itinerary-row')).toHaveLength(0);
+    await view.setProps({ loading: true });
+    expect(view.get('[role="status"]').text()).toContain('Loading');
+    view.unmount();
+    expect(vi.getTimerCount()).toBe(count);
+  });
+});
