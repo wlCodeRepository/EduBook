@@ -93,6 +93,7 @@ export function campusDuration(booking: CampusBooking, language: string) {
     (Date.parse(booking.end_at_utc) - Date.parse(booking.start_at_utc)) / 60000,
   );
   if (booking.lesson_count && booking.lesson_minutes) {
+    if (booking.break_minutes) return zh ? `${booking.lesson_count} 节 · 每节50分钟 · 课间10分钟 · 总时段${elapsed}分钟` : `${booking.lesson_count} lessons · 50 min each · 10 min between · ${elapsed} min reserved`;
     return zh
       ? `${booking.lesson_count} 节 · ${booking.lesson_minutes} 分钟/节 · ${booking.lesson_count * booking.lesson_minutes} 分钟`
       : `${booking.lesson_count} lessons · ${booking.lesson_minutes} min each · ${booking.lesson_count * booking.lesson_minutes} min`;

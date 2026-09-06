@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import LearningRoom from "./LearningRoom.vue";
+import { LESSON_MINUTES, lessonSpan, isTeacherHour } from '../lib/lesson-policy';
 import type { Profile, BusySlot, BlockedPeriod } from "../lib/types";
 import type { BookingSlot } from "../lib/booking";
 import {
@@ -138,7 +139,7 @@ function slot(utc: string, count: number) {
   return teacher.value
     ? studioSlot(
         utc,
-        teacher.value.default_lesson_minutes,
+        LESSON_MINUTES,
         count,
         props.timezone,
         teacher.value.timezone,
@@ -149,7 +150,7 @@ function slot(utc: string, count: number) {
     : null;
 }
 const starts = computed(() =>
-  studioStarts(date.value, props.timezone).map((item) => ({
+  studioStarts(date.value, props.timezone).filter(item=>teacher.value && isTeacherHour(item.utc,teacher.value.timezone)).map((item) => ({
     ...item,
     single: slot(item.utc, 1)?.available ?? false,
     full: slot(item.utc, lessons.value)?.available ?? false,
@@ -293,7 +294,7 @@ function submit() {
           <span
             ><strong>{{ person.display_name }}</strong
             ><small
-              >{{ person.default_lesson_minutes }}
+              >{{ LESSON_MINUTES }}
               {{ tr("分钟 / 节", "min / lesson") }}</small
             ><small>{{ person.timezone }}</small></span
           >
@@ -303,7 +304,7 @@ function submit() {
         v-if="teacher"
         class="studio-room"
         :name="teacher.display_name"
-        :minutes="teacher.default_lesson_minutes"
+        :minutes="LESSON_MINUTES"
         :language="language"
       />
       <button
@@ -359,7 +360,7 @@ function submit() {
         <legend>
           {{ tr("连续课时", "Consecutive lessons") }}
           <span v-if="teacher"
-            >· {{ teacher.default_lesson_minutes }}
+            >· {{ LESSON_MINUTES }}
             {{ tr("分钟 / 节", "min each") }}</span
           >
         </legend>
@@ -488,9 +489,10 @@ function submit() {
         }}</span>
       </p>
       <p v-if="teacher">
-        {{ teacher.default_lesson_minutes * lessons }}
-        {{ tr("分钟", "minutes") }}
+        {{ LESSON_MINUTES * lessons }}
+        {{ tr("分钟授课", "minutes teaching") }}
       </p>
+      <p v-if="lessons>1">{{tr('课间休息10分钟；总时段','10 min between lessons; reserved span')}} {{lessonSpan(lessons)}} {{tr('分钟','min')}}</p>
       <div class="ticket-time" aria-live="polite">
         <template v-if="selected"
           ><p>{{ selected.viewerStart }}</p>
@@ -546,8 +548,8 @@ function submit() {
       <p class="muted">
         {{
           tr(
-            "一次提交完整连续时段，等待老师确认。",
-            "One request for the whole interval, subject to teacher confirmation.",
+            "按老师时区整点开始，每节50分钟、课间10分钟。整段一次申请，待老师确认。",
+            "Hourly starts in teacher time. 50 min per lesson + 10 min between lessons. One request, subject to confirmation.",
           )
         }}
       </p>

@@ -92,14 +92,14 @@ describe("BookingStudio", () => {
     expect(view.text()).toContain("This full interval is unavailable");
     expect(view.get('[data-lessons="3"]').attributes("disabled")).toBeDefined();
     expect(view.get(".submit-booking").attributes("disabled")).toBeDefined();
-    await view.get('[data-lessons="2"]').trigger("click");
+    await view.get('[data-lessons="1"]').trigger("click");
     await view.get(".submit-booking").trigger("click");
     await view.get(".submit-booking").trigger("click");
     const events = view.emitted("submit")!;
     expect(events).toHaveLength(1);
     expect(events[0][0]).toMatchObject({
       startAtUtc: "2026-09-05T08:00:00.000Z",
-      endAtUtc: "2026-09-05T09:00:00.000Z",
+      endAtUtc: "2026-09-05T08:50:00.000Z",
       available: true,
     });
   });
@@ -107,7 +107,7 @@ describe("BookingStudio", () => {
     const view = setup();
     await view.get(time("08:00")).trigger("click");
     await view.get('[data-lessons="8"]').trigger("click");
-    expect(view.get(".lesson-ticket").text()).toContain("240 minutes");
+    expect(view.get(".lesson-ticket").text()).toContain("400 minutes");
     await view.setProps({ loading: true });
     await view.get(".submit-booking").trigger("click");
     expect(view.emitted("submit")).toBeUndefined();
@@ -180,11 +180,11 @@ describe("BookingStudio", () => {
   });
   it("shows only one time group and keeps every group accessible", async () => {
     const view = setup();
-    expect(view.findAll("[data-start]")).toHaveLength(24);
+    expect(view.findAll("[data-start]")).toHaveLength(6);
     expect(view.find(".time-offset").exists()).toBe(false);
     await view.findAll(".period-switch button")[3].trigger("click");
-    expect(view.findAll("[data-start]")).toHaveLength(24);
-    expect(view.find('[data-start="2026-09-05T23:45:00.000Z"]').exists()).toBe(
+    expect(view.findAll("[data-start]")).toHaveLength(6);
+    expect(view.find('[data-start="2026-09-05T23:00:00.000Z"]').exists()).toBe(
       true,
     );
   });

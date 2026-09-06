@@ -41,6 +41,7 @@ export interface Booking {
   created_at?: string
   lesson_minutes?: number
   lesson_count?: number
+  break_minutes?: number
   teacher?: Profile
   student?: Profile
 }

@@ -15,6 +15,7 @@
  */
 import type { BookingSlot } from "./booking";
 import type { BusySlot } from "./types";
+import { LESSON_MINUTES, lessonSpan, isTeacherHour } from './lesson-policy';
 
 const QUARTER = 15 * 60_000;
 /** Wall-clock fields must be resolved in the viewer's zone, never the device zone. */
@@ -103,16 +104,15 @@ export function studioSlot(
   const start = Date.parse(startUtc);
   if (
     !Number.isFinite(start) ||
-    start % QUARTER !== 0 ||
-    !Number.isInteger(duration) ||
-    duration < 5 ||
-    duration > 240 ||
+    !isTeacherHour(startUtc, teacherTimezone) ||
+    duration !== LESSON_MINUTES ||
     !Number.isInteger(lessons) ||
     lessons < 1 ||
     lessons > 8
   )
     return null;
-  const end = start + duration * lessons * 60_000;
+  if (Array.from({length:lessons},(_,i)=>new Date(start+i*3_600_000).toISOString()).some(at=>!isTeacherHour(at,teacherTimezone))) return null;
+  const end = start + lessonSpan(lessons) * 60_000;
   const time = (at: number) =>
     new Intl.DateTimeFormat("en-GB", {
       timeZone: teacherTimezone,

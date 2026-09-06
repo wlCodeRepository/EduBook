@@ -217,6 +217,8 @@ async function setError(error: unknown) {
   }
   if (!code && error instanceof Error) code = error.message;
   const known: Record<string, string> = {
+    start_time_must_be_teacher_hour: tr('Choose an hourly start in the teacher’s timezone.','请选择老师时区的整点开始时间。'),
+    invalid_lesson_duration: tr('Each lesson is 50 minutes, with 10 minutes between lessons. Please select again.','每节50分钟，课间10分钟，请重新选择。'),
     invalid_or_ambiguous_local_time: tr(
       "Choose a 15-minute time in your display timezone. This time may be skipped or repeated by daylight saving time.",
       "请按显示时区选择15分钟档位。该时间可能因夏令时不存在或重复，请选择其他时间。",
@@ -481,7 +483,7 @@ async function saveAccount() {
       userId: editing.value.id,
       displayName: editForm.value.displayName,
       timezone: editForm.value.timezone,
-      defaultLessonMinutes: editForm.value.defaultLessonMinutes,
+      defaultLessonMinutes: 50,
     });
     editing.value = null;
     showToast(tr("Account updated.", "账号已更新。"));
@@ -845,7 +847,7 @@ onBeforeUnmount(() => {
         :bookings="teacherBookings"
         :timezone="viewerTimezone"
         :language="language"
-        :lesson-minutes="profile.default_lesson_minutes"
+        :lesson-minutes="50"
         :loading="loading"
         @requests="activeNav = 'requests'"
         @settings="activeNav = 'settings'"
@@ -853,7 +855,7 @@ onBeforeUnmount(() => {
       />
       <TeacherSettings
         v-else-if="activeNav === 'settings'"
-        :minutes="profile.default_lesson_minutes"
+        :minutes="50"
         :blocked="blocked"
         :timezone="viewerTimezone"
         :language="language"
@@ -908,7 +910,7 @@ onBeforeUnmount(() => {
           </div>
           <LearningRoom
             :name="currentTeacher?.display_name"
-            :minutes="currentTeacher?.default_lesson_minutes"
+            :minutes="50"
             :language="language"
           />
         </div>
@@ -1055,16 +1057,7 @@ onBeforeUnmount(() => {
               :options="zoneOptions"
               :label="tr('Search timezone', '搜索时区')"
               searchable /></label
-          ><label v-if="editing.role === 'TEACHER'"
-            >{{ tr("Minutes per lesson", "每节课分钟数")
-            }}<input
-              v-model.number="editForm.defaultLessonMinutes"
-              type="number"
-              min="5"
-              max="240"
-              step="5"
-              required
-          /></label>
+          ><p v-if="editing.role === 'TEACHER'">{{tr('Fixed: 50 minutes per lesson, hourly starts.','统一每节50分钟，整点开始。')}}</p>
         </fieldset>
         <p v-if="errorMessage" class="alert alert-error" role="alert">
           {{ errorMessage }}
