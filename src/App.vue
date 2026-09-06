@@ -218,7 +218,6 @@ async function setError(error: unknown) {
   if (!code && error instanceof Error) code = error.message;
   const known: Record<string, string> = {
     start_time_must_be_teacher_hour: tr('Choose an hourly start in the teacher’s timezone.','请选择老师时区的整点开始时间。'),
-    invalid_lesson_duration: tr('Each lesson is 50 minutes, with 10 minutes between lessons. Please select again.','每节50分钟，课间10分钟，请重新选择。'),
     invalid_or_ambiguous_local_time: tr(
       "Choose a 15-minute time in your display timezone. This time may be skipped or repeated by daylight saving time.",
       "请按显示时区选择15分钟档位。该时间可能因夏令时不存在或重复，请选择其他时间。",
@@ -245,8 +244,8 @@ async function setError(error: unknown) {
       "只有学生可以提交预约。",
     ),
     invalid_lesson_duration: tr(
-      "The teacher's lesson length has changed or this duration is invalid. Reload and choose again.",
-      "老师的单节时长已变更或所选时长无效，请刷新后重新选择。",
+      "Lessons are 50 minutes with 10 minutes between lessons. Reload and choose again.",
+      "每节50分钟、课间10分钟，请刷新后重新选择。",
     ),
     slot_unavailable: tr(
       "This time was just taken. Please choose another one.",
