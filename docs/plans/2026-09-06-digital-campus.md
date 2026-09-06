@@ -53,4 +53,8 @@ Files: tests/visual/CampusPreview.vue, tests/visual/campus.html, tests/visual/ca
 
 ## Integration outcome — September 6
 
+## Authorized publication — September 6
+
+User requested deployment. Create release branch from current remote main, apply verified UI commit, open PR, wait for CI, merge without rewriting history, dispatch Pages-only workflow from main, verify workflow and live HTML/assets. Preserve earlier main backup; no backend deployment or migration. Record resulting release identifiers below the verification report.
+
 Tasks 1–4 are integrated locally. The main agent completed the interrupted teaching subtask, reviewed shared CSS collisions, reduced course pagination to four desktop/two mobile records, and connected calendar-selected blackout drafts directly to the form. Account avatar dialogs and explicit administrator action modes are wired in App. All-role offline browser preview and 73 tests pass; detailed evidence and live-validation limitations are in `docs/verification/2026-09-06-digital-campus.md`. Production publication is not part of the completed local verification.

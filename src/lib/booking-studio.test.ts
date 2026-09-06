@@ -55,75 +55,27 @@ describe("studio calendar and real UTC candidates", () => {
   });
 });
 
-describe("whole lesson intervals", () => {
-  const now = new Date("2026-01-01T00:00:00Z");
-  const make = (
-    count: number,
-    ranges: { start_at_utc: string; end_at_utc: string }[] = [],
-  ) =>
-    studioSlot(
-      "2026-09-06T23:45:00Z",
-      45,
-      count,
-      "UTC",
-      "Asia/Shanghai",
-      ranges,
-      "en",
-      now,
-    )!;
-  it("emits exact multiples crossing midnight with teacher and viewer labels", () => {
-    const slot = make(8);
-    expect(slot.endAtUtc).toBe("2026-09-07T05:45:00.000Z");
-    expect(slot.localDate).toBe("2026-09-07");
-    expect(slot.localStart).toBe("07:45");
-    expect(slot.localEnd).toBe("13:45");
-    expect(slot.available).toBe(true);
-    expect(slot.viewerStart).toContain("23:45");
-  });
-  it("checks middle and tail conflicts but allows adjacent half-open ranges", () => {
-    const range = [
-      {
-        start_at_utc: "2026-09-07T00:30:00Z",
-        end_at_utc: "2026-09-07T00:45:00Z",
-      },
-    ];
-    expect(make(1, range).available).toBe(true);
-    expect(make(2, range).available).toBe(false);
-    expect(make(8, range).available).toBe(false);
-    expect(
-      make(1, [
-        {
-          start_at_utc: "2026-09-06T23:00:00Z",
-          end_at_utc: "2026-09-06T23:45:00Z",
-        },
-      ]).available,
-    ).toBe(true);
-  });
-  it("uses elapsed duration over the DST fallback", () => {
-    const slot = studioSlot(
-      "2026-11-01T05:30:00Z",
-      60,
-      1,
-      "America/New_York",
-      "America/New_York",
-      [],
-      "en",
-      now,
-    )!;
-    expect(slot.localStart).toBe("01:30");
-    expect(slot.localEnd).toBe("01:30");
-    expect(slot.viewerStart).toContain("GMT-04:00");
-    expect(slot.viewerEnd).toContain("GMT-05:00");
-  });
-  it("rejects invalid length and non-quarter starts, marks past instants unavailable", () => {
-    for (const count of [0, 9, 1.5]) expect(make(count)).toBeNull();
-    expect(studioSlot("invalid", 30, 1, "UTC", "UTC", [])).toBeNull();
-    expect(
-      studioSlot("2026-09-06T12:01:00Z", 30, 1, "UTC", "UTC", []),
-    ).toBeNull();
-    expect(
-      studioSlot("2026-01-01T00:00:00Z", 30, 1, "UTC", "UTC", [], "en", now)
-        ?.available,
-    ).toBe(false);
-  });
+describe("fixed hourly lesson intervals", () => {
+ const now=new Date('2026-01-01T00:00:00Z');
+ const make=(n:number,ranges:{start_at_utc:string;end_at_utc:string}[]=[])=>studioSlot('2026-09-06T23:00:00Z',50,n,'UTC','Asia/Shanghai',ranges,'en',now);
+ it('snapshots 50 teaching minutes and 10 minutes between hourly lessons',()=>{
+  expect(make(1)?.endAtUtc).toBe('2026-09-06T23:50:00.000Z');
+  expect(make(2)?.endAtUtc).toBe('2026-09-07T00:50:00.000Z');
+  expect(make(8)?.endAtUtc).toBe('2026-09-07T06:50:00.000Z');
+ });
+ it('reserves breaks and rejects middle/tail conflicts while allowing adjacency',()=>{
+  expect(make(2,[{start_at_utc:'2026-09-06T23:55:00Z',end_at_utc:'2026-09-07T00:00:00Z'}])?.available).toBe(false);
+  expect(make(2,[{start_at_utc:'2026-09-07T00:45:00Z',end_at_utc:'2026-09-07T01:00:00Z'}])?.available).toBe(false);
+  expect(make(1,[{start_at_utc:'2026-09-06T23:50:00Z',end_at_utc:'2026-09-07T00:00:00Z'}])?.available).toBe(true);
+ });
+ it('rejects invalid lengths and non-hour starts in teacher time',()=>{
+  for(const n of [0,9,1.5])expect(make(n)).toBeNull();
+  expect(studioSlot('2026-09-06T12:15:00Z',50,1,'UTC','UTC',[])).toBeNull();
+  expect(studioSlot('2026-09-06T12:00:00Z',30,1,'UTC','UTC',[])).toBeNull();
+  expect(studioSlot('2026-09-06T12:15:00Z',50,1,'UTC','Asia/Kathmandu',[],'en',now)?.available).toBe(true);
+ });
+ it('handles DST repeated hours and rejects a half-hour DST shift within a course',()=>{
+  expect(studioSlot('2026-11-01T05:00:00Z',50,2,'America/New_York','America/New_York',[],'en',now)?.endAtUtc).toBe('2026-11-01T06:50:00.000Z');
+  expect(studioSlot('2026-10-03T14:30:00Z',50,3,'UTC','Australia/Lord_Howe',[],'en',now)).toBeNull();
+ });
 });

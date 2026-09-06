@@ -22,12 +22,8 @@ const visibleBlocked = computed(() =>
   props.blocked.slice(page.value * 3, page.value * 3 + 3),
 );
 watch(pages, (n) => (page.value = Math.min(page.value, n - 1)));
-const minutes = ref(props.minutes);
+
 const draft = ref({ ...props.draft });
-watch(
-  () => props.minutes,
-  (v) => (minutes.value = v),
-);
 watch(
   () => props.draft,
   (v) => {
@@ -38,13 +34,6 @@ watch(
   { deep: true },
 );
 const zh = computed(() => props.language === "zh");
-const valid = computed(
-  () =>
-    Number.isInteger(minutes.value) &&
-    minutes.value >= 5 &&
-    minutes.value <= 240 &&
-    minutes.value % 5 === 0,
-);
 function date(v: string) {
   return new Intl.DateTimeFormat(zh.value ? "zh-CN" : "en-GB", {
     timeZone: props.timezone,
@@ -95,45 +84,11 @@ function date(v: string) {
         <p>
           {{
             zh
-              ? "学生可一次预约连续 1–8 节。修改只影响新预约。"
-              : "Students can book 1–8 consecutive lessons at once. Changes apply to new bookings only."
+              ? "学生可一次预约1–8节。历史预约保持原时间。"
+              : "Students can book 1–8 lessons in one request. Existing bookings keep their original times."
           }}
         </p>
-        <form @submit.prevent="valid && emit('save', minutes)">
-          <fieldset :disabled="busy">
-            <label
-              >{{ zh ? "每节分钟数" : "Minutes per lesson"
-              }}<input
-                v-model.number="minutes"
-                type="number"
-                min="5"
-                max="240"
-                step="5"
-                required
-            /></label>
-            <div class="campus-duration-presets">
-              <button
-                v-for="n in [30, 45, 60, 90]"
-                :key="n"
-                type="button"
-                :aria-pressed="minutes === n"
-                @click="minutes = n"
-              >
-                {{ n }} min
-              </button>
-            </div>
-            <div class="campus-duration-example">
-              {{ zh ? "连续 4 节" : "4 consecutive lessons" }}
-              <strong>{{ minutes * 4 }} min</strong>
-            </div>
-            <button
-              class="primary-button"
-              :disabled="!valid || minutes === props.minutes"
-            >
-              {{ zh ? "保存课程时长" : "Save lesson length" }}
-            </button>
-          </fieldset>
-        </form>
+        <div class="campus-duration-example"><strong>50 min</strong><span>{{zh?'每节课程，统一时长':'Every lesson. One standard length.'}}</span></div><p>{{zh?'按老师时区整点开始，课间休息10分钟。连约两节：09:00–09:50、10:00–10:50。':'Starts on the hour in teacher time, with 10 minutes between lessons. Two lessons: 09:00–09:50 and 10:00–10:50.'}}</p>
       </section>
     </div>
     <div v-else class="settings-blocked">

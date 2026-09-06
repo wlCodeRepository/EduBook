@@ -36,7 +36,7 @@ async function dashboard(admin: ReturnType<typeof createClient>) {
   const [profiles, allBookings, recentBookings] = await Promise.all([
     admin.from("profiles").select("id,role"),
     admin.from("bookings").select("status, start_at_utc, end_at_utc"),
-    admin.from("bookings").select("id,teacher_id,student_id,start_at_utc,end_at_utc,status,cancellation_reason,created_at").order("created_at", { ascending: false }).limit(12),
+    admin.from("bookings").select("id,teacher_id,student_id,start_at_utc,end_at_utc,status,cancellation_reason,created_at,lesson_minutes,lesson_count,break_minutes").order("created_at", { ascending: false }).limit(12),
   ]);
   if (profiles.error || allBookings.error || recentBookings.error) return json({ error: "dashboard_load_failed" }, 500);
   const accountById = new Map<string, { display_name: string; timezone: string }>();

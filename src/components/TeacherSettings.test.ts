@@ -14,10 +14,10 @@ describe('focused teacher settings',()=>{
  });
  it('shows one task and keeps lesson changes as a draft',async()=>{
   const w=mount(TeacherSettings,{props});
-  await w.get('input[type=number]').setValue('60');
+  expect(w.find('input[type=number]').exists()).toBe(false);
+  expect(w.text()).toContain('50 min');
+  expect(w.text()).toContain('10 minutes');
   expect(w.emitted('save')).toBeUndefined();
-  await w.get('form').trigger('submit');
-  expect(w.emitted('save')?.[0]).toEqual([60]);
   await w.get('.settings-tabs button:nth-child(2)').trigger('click');
   expect(w.find('input[type=number]').exists()).toBe(false);
   await w.get('.settings-blocked .primary-button').trigger('click');

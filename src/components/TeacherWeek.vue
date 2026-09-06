@@ -159,8 +159,8 @@ function weekday(date: string) {
       <p class="week-note">
         {{
           zh
-            ? "待确认与已确认预约均占用时间；其余未来时段如未设置禁约，学生可按 15 分钟档位发起预约。"
-            : "Pending and confirmed bookings reserve time. Other future times are open for requests at 15-minute starts unless blocked."
+            ? "待确认与已确认预约均占用时间；未禁约的空闲时段可预约。按老师时区整点开始，每节50分钟、课间10分钟。"
+            : "Pending and confirmed bookings reserve time. Unblocked free time is bookable on the hour in teacher time: 50 minutes per lesson, 10 minutes between lessons."
         }}
       </p>
     </details>
